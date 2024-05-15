@@ -139,12 +139,12 @@ bool Lcd::_SpiIsBusy ()
 
 // ------------------------------------------------------------------------------------------------------- //
 
-// Name:        _InitPeripherals
+// Name:        _InitHardware
 // Description: Starts the TivaC device peripherals required to this application
 // Arguments:   Config - lcd_config_t struct
 // Returns:     None
 
-void Lcd::_InitPeripherals (lcd_config_t *Config)
+void Lcd::_InitHardware (lcd_config_t *Config)
 {
     // Get lcd_config_t object parameters and store in a "private" variable
     memcpy(&_Config, Config, sizeof(lcd_config_t));
@@ -297,7 +297,7 @@ Lcd::Lcd(lcd_config_t *Config) : Lcd()
 void Lcd::Init (lcd_config_t *Config)
 {
     // Configure peripherals
-    _InitPeripherals (Config);
+    _InitHardware (Config);
 
     // Send Startup commands
     _SendByte (LCD_COMMAND, PCD8544_FUNCTIONSET | PCD8544_EXTENDEDINSTRUCTION);
@@ -744,16 +744,26 @@ void Lcd::WriteFloatBig (float Number, uint8_t DecPlaces, lcd_pixel_mode_t Mode)
 // Description: Draws a bitmap on the display starting at the current cursor position
 // Arguments:   Bitmap - Pointer to the array
 //              Lenght - Lenght of the array (0 to PCD8544_MAXBYTES bytes)
+//              Mode - Pixel mode - lcd_pixel_mode_t value
 // Returns:     None
 
-void Lcd::DrawBitmap (const uint8_t *Bitmap, uint16_t Length)
+void Lcd::DrawBitmap (const uint8_t *Bitmap, uint16_t Length, lcd_pixel_mode_t Mode)
 {
-    // Variables
-    uint16_t Counter = 0;
-
     // Put all bytes in buffer
-    for (Counter = 0; Counter < Length; Counter++)
-        _BufferPutByte (*Bitmap++);
+    for (uint16_t Counter = 0; Counter < Length; Counter++)
+    {
+        // Get byte to send and advance pointer
+        uint8_t ByteToSend = Bitmap[Counter];
+
+        // Get byte in display buffer
+        uint8_t ByteInBuffer = _Buffer[GetBank()][GetColumn()];
+
+        // Adjust byte according to desired pixel mode
+        ByteToSend = _AdjustByte (ByteToSend, ByteInBuffer, Mode);
+
+        // Put byte in buffer
+        _BufferPutByte (ByteToSend);
+    }
 }
 
 // ------------------------------------------------------------------------------------------------------- //

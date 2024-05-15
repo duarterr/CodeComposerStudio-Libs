@@ -239,57 +239,49 @@ class Lcd
         // Description: Controls the SCE pin
         // Arguments:   Select - true to select LCD, false to deselect
         // Returns:     None
-
         void _SetSelect (bool Select);
 
         // Name:        _SetDc
         // Description: Controls the DC pin
         // Arguments:   Mode - lcd_mode_t value
         // Returns:     None
-
         void _SetDc (lcd_mode_t Mode);
 
         // Name:        _SetBkl
         // Description: Controls the backlight pin
         // Arguments:   Bkl - lcd_backlight_t value
         // Returns:     None
-
         void _SetBkl (lcd_backlight_t Bkl);
 
         // Name:        _LoadSpiBuffer
         // Description: Loads a byte into the SPI buffer
         // Arguments:   Byte - Byte to be loades
         // Returns:     None
-
         void _LoadSpiBuffer (uint8_t Byte);
 
         // Name:        _SpiIsBusy
         // Description: Gets SPI bus status
         // Arguments:   None
         // Returns:     SPI busy status
-
         bool _SpiIsBusy ();
 
-        // Name:        _InitPeripherals
+        // Name:        _InitHardware
         // Description: Starts the TivaC device peripherals required to this application
         // Arguments:   Config - lcd_config_t struct
         // Returns:     None
-
-        void _InitPeripherals (lcd_config_t *Config);
+        void _InitHardware (lcd_config_t *Config);
 
         // Name:        _SendByte
         // Description: Sends a byte to the LCD controller
         // Arguments:   Mode - lcd_mode_t value
         //              Byte - Byte to be sent
         // Returns:     None
-
         void _SendByte (lcd_mode_t Mode, uint8_t Byte);
 
         // Name:        _BufferPutByte
         // Description: Puts a byte in the local buffer at current cursor position and advance cursor
         // Arguments:   Byte - Byte to be put
         // Returns:     None
-
         void _BufferPutByte (uint8_t Byte);
 
         // Name:        _AdjustByte
@@ -298,7 +290,6 @@ class Lcd
         //              ByteInBuffer - Byte already in buffer
         //              Mode - Pixel mode - lcd_pixel_mode_t value
         // Returns:     Adjusted ByteToSend
-
         uint8_t _AdjustByte(uint8_t ByteToSend, uint8_t ByteInBuffer, lcd_pixel_mode_t Mode);
 
     // --------------------------------------------------------------------------------------------------- //
@@ -311,28 +302,24 @@ class Lcd
         // Description: Constructor of the class with no arguments
         // Arguments:   None
         // Returns:     None
-
         Lcd();
 
         // Name:        Lcd
         // Description: Constructor of the class with lcd_config_t struct as argument
         // Arguments:   Config - lcd_config_t struct
         // Returns:     None
-
         Lcd(lcd_config_t *Config);
 
         // Name:        Init
         // Description: Starts the device peripherals, configures the LCD controller and clears display RAM
         // Arguments:   Config - lcd_config_t struct
         // Returns:     None
-
         void Init (lcd_config_t *Config);
 
         // Name:        Commit
         // Description: Copy the local buffer to the LCD ram
         // Arguments:   None
         // Returns:     None
-
         void Commit ();
 
         // ----------------------------------------------------------------------------------------------- //
@@ -343,21 +330,18 @@ class Lcd
         //              Column - Starting column of the range
         //              Length - Number of columns to be clear
         // Returns:     None
-
         void ClearRange (uint8_t Bank, uint8_t Column, uint16_t Length);
 
         // Name:        ClearBank
         // Description: Clears a bank of the LCD and sets the cursor at the column 0 of this bank
         // Arguments:   Bank - Bank to be clear
         // Returns:     None
-
         void ClearBank (uint8_t Bank);
 
         // Name:        ClearAll
         // Description: Clears the LCD and sets the cursor at bank 0, column 0
         // Arguments:   None
         // Returns:     None
-
         void ClearAll ();
 
         // ----------------------------------------------------------------------------------------------- //
@@ -367,21 +351,18 @@ class Lcd
         // Arguments:   Bank - Desired bank
         //              Column - Desired column
         // Returns:     None
-
         void Goto (uint8_t Bank, uint8_t Column);
 
         // Name:        GetBank
         // Description: Gets the current bank of the LCD cursor
         // Arguments:   None
         // Returns:     Cursor bank
-
         uint8_t GetBank ();
 
         // Name:        GetColumn
         // Description: Gets the current column of the LCD cursor
         // Arguments:   None
         // Returns:     Cursor column
-
         uint8_t GetColumn ();
 
         // ----------------------------------------------------------------------------------------------- //
@@ -390,21 +371,18 @@ class Lcd
         // Description: Sets or gets LCD powerdown mode
         // Arguments:   Active - lcd_powerdown_t value. LCD_PD_GET returns current powerdown status
         // Returns:     Current powerdown status - lcd_powerdown_t value
-
         lcd_powerdown_t Powerdown (lcd_powerdown_t Active);
 
         // Name:        Backlight
         // Description: Sets or gets the backlight status
         // Arguments:   Bkl - lcd_backlight_t value. LCD_BKL_GET returns backlight status
         // Returns:     Backlight status - lcd_backlight_t value
-
         lcd_backlight_t Backlight (lcd_backlight_t Bkl);
 
         // Name:        Invert
         // Description: Sets or gets inverted mode status
         // Arguments:   Inv - lcd_inv_t value. LCD_INV_GET returns inverted status
         // Returns:     Inverted mode status - lcd_inv_t value
-
         lcd_inv_t Invert (lcd_inv_t Inv);
 
         // ----------------------------------------------------------------------------------------------- //
@@ -416,7 +394,6 @@ class Lcd
         //              Font - lcd_font_t value
         //              Mode - Pixel mode - lcd_pixel_mode_t value
         // Returns:     None
-
         void WriteChar (char Char, lcd_font_t Font, lcd_pixel_mode_t Mode);
 
         // Name:        WriteString
@@ -424,7 +401,6 @@ class Lcd
         //              Font - lcd_font_t value
         //              Mode - Pixel mode - lcd_pixel_mode_t value
         // Returns:     None
-
         void WriteString (const char *String, lcd_font_t Font, lcd_pixel_mode_t Mode);
 
         // Name:        WriteInt
@@ -433,7 +409,6 @@ class Lcd
         //              Font - lcd_font_t value
         //              Mode - Pixel mode - lcd_pixel_mode_t value
         // Returns:     None
-
         void WriteInt (int32_t Number, lcd_font_t Font, lcd_pixel_mode_t Mode);
 
         // Name:        WriteFloat
@@ -443,7 +418,6 @@ class Lcd
         //              Font - lcd_font_t value
         //              Mode - Pixel mode - lcd_pixel_mode_t value
         // Returns:     None
-
         void WriteFloat (float Number, uint8_t DecPlaces, lcd_font_t Font, lcd_pixel_mode_t Mode);
 
         // ----------------------------------------------------------------------------------------------- //
@@ -454,7 +428,6 @@ class Lcd
         // Arguments:   Char - Char to be sent
         //              Mode - Pixel mode - lcd_pixel_mode_t value
         // Returns:     None
-
         void WriteCharBig (char Char, lcd_pixel_mode_t Mode);
 
         // Name:        WriteIntBig
@@ -462,7 +435,6 @@ class Lcd
         // Arguments:   Number - Number to be sent
         //              Mode - Pixel mode - lcd_pixel_mode_t value
         // Returns:     None
-
         void WriteIntBig (int32_t Number, lcd_pixel_mode_t Mode);
 
         // Name:        WriteFloatBig
@@ -472,7 +444,6 @@ class Lcd
         //              DecPlaces - Number of decimal places to be shown
         //              Mode - Pixel mode - lcd_pixel_mode_t value
         // Returns:     None
-
         void WriteFloatBig (float Number, uint8_t DecPlaces, lcd_pixel_mode_t Mode);
 
         // ----------------------------------------------------------------------------------------------- //
@@ -481,9 +452,9 @@ class Lcd
         // Description: Draws a bitmap on the display starting at the current cursor position
         // Arguments:   Bitmap - Pointer to the array
         //              Lenght - Lenght of the array (0 to PCD8544_MAXBYTES bytes)
+        //              Mode - Pixel mode - lcd_pixel_mode_t value
         // Returns:     None
-
-        void DrawBitmap (const uint8_t *Bitmap, uint16_t Length);
+        void DrawBitmap (const uint8_t *Bitmap, uint16_t Length, lcd_pixel_mode_t Mode);
 
         // Name:        DrawPixel
         // Description: Draws a single pixel on the display
@@ -491,7 +462,6 @@ class Lcd
         //              Y - Row of the pixel (0 to PCD8544_ROWS)
         //              Mode - Pixel mode - lcd_pixel_mode_t value
         // Returns:     None
-
         void DrawPixel (uint8_t X, uint8_t Y, lcd_pixel_mode_t Mode);
 
         // Name:        DrawLine
@@ -500,7 +470,6 @@ class Lcd
         //              Xf, Yf - Absolute pixel coordinates for line end
         //              Mode - Pixel mode - lcd_pixel_mode_t value
         // Returns:     None
-
         void DrawLine (uint8_t Xi, uint8_t Yi, uint8_t Xf, uint8_t Yf, lcd_pixel_mode_t Mode);
 
         // Name:        DrawRectangle
@@ -509,7 +478,6 @@ class Lcd
         //              Xf, Yf - Absolute pixel coordinates for end point
         //              Mode - Pixel mode - lcd_pixel_mode_t value
         // Returns:     None
-
         void DrawRectangle (uint8_t Xi, uint8_t Yi, uint8_t Xf, uint8_t Yf, lcd_pixel_mode_t Px_Mode);
 
         // Name:        DrawFilledRectangle
@@ -518,7 +486,6 @@ class Lcd
         //              Xf, Yf - Absolute pixel coordinates for end point
         //              Mode - Pixel mode - lcd_pixel_mode_t value
         // Returns:     None
-
         void DrawFilledRectangle (uint8_t Xi, uint8_t Yi, uint8_t Xf, uint8_t Yf, lcd_pixel_mode_t Px_Mode);
 
         // Name:        DrawCircle
@@ -527,7 +494,6 @@ class Lcd
         //              Radius - Radius of the circle in pixels
         //              Px_Mode - Pixel mode - Can be either LCD_PIXEL_OFF, LCD_PIXEL_ON or LCD_PIXEL_XOR
         // Returns:     None
-
         void DrawCircle (uint8_t Xc, uint8_t Yc, uint8_t Radius, lcd_pixel_mode_t Mode);
 };
 
