@@ -30,23 +30,15 @@ extern "C"
 // Peripherals
 typedef struct
 {
-    uint32_t PwmR;                  // PWM peripheral R
-    uint32_t PwmG;                  // PWM peripheral G
-    uint32_t PwmB;                  // PWM peripheral B
-    uint32_t GpioR;                 // GPIO peripheral R
-    uint32_t GpioG;                 // GPIO peripheral G
-    uint32_t GpioB;                 // GPIO peripheral B
+    uint32_t Pwm;                   // PWM peripheral
+    uint32_t Gpio;                  // GPIO peripheral
 } rgb_periph_t;
 
 // Bases
 typedef struct
 {
-    uint32_t PwmR;                  // PWM base R
-    uint32_t PwmG;                  // PWM base G
-    uint32_t PwmB;                  // PWM base B
-    uint32_t GpioR;                 // GPIO base R
-    uint32_t GpioG;                 // GPIO base G
-    uint32_t GpioB;                 // GPIO base B
+    uint32_t Pwm;                   // PWM base R
+    uint32_t Gpio;                  // GPIO base
 } rgb_base_t;
 
 // PWM generators
@@ -72,6 +64,14 @@ typedef struct
     uint32_t G;
     uint32_t B;
 } rgb_pwm_out_bit_t;
+
+// PWM interrupt struct
+typedef struct
+{
+    uint32_t Interrupt;             // PWM interrupt
+    uint32_t Gen;                   // PWM interrupt generator
+    void (*Callback)(void);         // Pointer to callback function - Callback = [](){ObjectName.PwmIsr();}
+} pwm_interrupt_t;
 
 // Pin mux configs
 typedef struct
@@ -104,6 +104,7 @@ typedef struct
     rgb_pwm_gen_t Gen;              // Generator struct
     rgb_pwm_out_t Out;              // PWM output struct
     rgb_pwm_out_bit_t OutBit;       // PWM output bit struct
+    pwm_interrupt_t Int;            // PWM interrupt struct
     rgb_pin_mux_t PinMux;           // PinMux struct
     rgb_pin_t Pin;                  // Pin struct
     rgb_params_t Params;            // Parameters struct
@@ -116,6 +117,19 @@ typedef struct
     uint8_t G;  // Green value (0 to 255)
     uint8_t B;  // Blue value (0 to 255)
 } rgb_color_t;
+
+/* ------------------------------------------------------------------------------------------------------- */
+// Custom RGB colors
+/* ------------------------------------------------------------------------------------------------------- */
+
+const rgb_color_t RGB_OFF = (rgb_color_t){0x00, 0x00, 0x00};
+const rgb_color_t RGB_RED = (rgb_color_t){0xFF, 0x00, 0x00};
+const rgb_color_t RGB_GREEN = (rgb_color_t){0x00, 0xFF, 0x00};
+const rgb_color_t RGB_BLUE = (rgb_color_t){0x00, 0x00, 0xFF};
+const rgb_color_t RGB_CYAN = (rgb_color_t){0x00, 0xFF, 0xFF};
+const rgb_color_t RGB_MAGENTA = (rgb_color_t){0xFF, 0x00, 0xFF};
+const rgb_color_t RGB_YELLOW = (rgb_color_t){0xFF, 0xFF, 0x00};
+const rgb_color_t RGB_WHITE = (rgb_color_t){0xFF, 0xFF, 0xFF};
 
 // ------------------------------------------------------------------------------------------------------- //
 // Class prototype
@@ -132,8 +146,11 @@ class Rgb
         // RGB configuration object
         rgb_config_t _Config;
 
-        // RGB color
-        rgb_color_t _Color = {.R = 0, .G = 0, .B = 0};
+        // RGB fade variables
+        rgb_color_t _CurrentColor = RGB_OFF;
+        rgb_color_t _NewColor = RGB_OFF;
+        uint32_t _FadeSteps = 0;
+        uint32_t _StepCounter = 0;
 
         // PWM period
         uint16_t _PwmPeriod = 0;
@@ -144,11 +161,38 @@ class Rgb
         // Returns:     None
         void _InitHardware();
 
+        // Name:        _SetPwmFrequency
+        // Description: Changes PWM modules frequency
+        // Arguments:   Frequency
+        // Returns:     None
+        void _SetPwmFrequency (uint32_t Frequency);
+
+        // Name:        _SetPwmDuty
+        // Description: Changes PWM modules duty cycle
+        // Arguments:   DutyR, DutyG, DutyB - Duty cycles - 0 to _PwmPeriod
+        // Returns:     None
+        void _SetPwmDuty (uint16_t DutyR, uint16_t DutyG, uint16_t DutyB);
+
         // Name:        _GetPwmClock
         // Description: Gets PWM module clock
         // Arguments:   None
         // Returns:     Clock in Hz
         uint32_t _GetPwmClock();
+
+        // Name:        _ColorsAreEqual
+        // Description: Check if two colors are equal
+        // Arguments:   Color1 - First color - rgb_color_t value
+        //              Color2 - Second color - rgb_color_t value
+        // Returns:     True if equal. False otherwise
+        bool _ColorsAreEqual(rgb_color_t Color1, rgb_color_t Color2);
+
+        // Name:        _CalculateStepSkip
+        // Description: Determine the number of steps to skip during the fade
+        // Arguments:   NewValue - First value
+        //              CurrentValue - Second value
+        //              FadeSteps - Number of fade steps
+        // Returns:     True if equal. False otherwise
+        uint16_t _CalculateStepSkip(uint16_t NewValue, uint16_t CurrentValue, uint16_t FadeSteps);
 
     // --------------------------------------------------------------------------------------------------- //
     // Public members
@@ -177,14 +221,21 @@ class Rgb
         // Name:        SetColor
         // Description: Sets the RGB LED color
         // Arguments:   Color - New color - rgb_color_t structure (0x00 to 0xFF values)
+        //              FadeTime - Fade time to new color (ms)
         // Returns:     None
-        void SetColor(rgb_color_t Color);
+        void SetColor(rgb_color_t Color, uint16_t FadeTime);
 
         // Name:        GetColor
         // Description: Gets the current LED color
         // Arguments:   Buffer - Pointer rgb_color_t structure where values will be saved (0x00 to 0xFF values)
         // Returns:     None
         void GetColor(rgb_color_t *Buffer);
+
+        // Name:        PwmIsr
+        // Description: PWM interrupt service routine
+        // Arguments:   None
+        // Returns:     None
+        void PwmIsr ();
 };
 
 // ------------------------------------------------------------------------------------------------------- //
