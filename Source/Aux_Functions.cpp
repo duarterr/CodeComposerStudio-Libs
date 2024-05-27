@@ -44,6 +44,32 @@ float Aux::Map(float Value, float InMin, float InMax, float OutMin, float OutMax
 
 // ------------------------------------------------------------------------------------------------------- //
 
+// Name:        Min
+// Description: Returns the smaller of two floating-point numbers
+// Arguments:   a - The first floating-point number
+//              b - The second floating-point number
+// Returns:     The smaller of the two floating-point numbers
+
+float Aux::Min(float a, float b)
+{
+    return (a < b) ? a : b;
+}
+
+// ------------------------------------------------------------------------------------------------------- //
+
+// Name:        Max
+// Description: Returns the larger of two floating-point numbers
+// Arguments:   a - The first floating-point number
+//              b - The second floating-point number
+// Returns:     The larger of the two floating-point numbers
+
+float Aux::Max(float a, float b)
+{
+    return (a > b) ? a : b;
+}
+
+// ------------------------------------------------------------------------------------------------------- //
+
 // Name:        Strcpy
 // Description: Copy one string to another
 // Arguments:   Destination - Destination string
@@ -194,6 +220,29 @@ uint8_t Aux::F2Str(float Number, char* String, uint8_t DecPlaces)
 
     // Return the number of digits in the string
     return Length;
+}
+
+// ------------------------------------------------------------------------------------------------------- //
+
+// Name:        FastFabs
+// Description: Computes the absolute value of a float number using a ternary operator for fast execution
+// Arguments:   x - The float number for which the absolute value is to be computed
+// Returns:     The absolute value of the input number
+
+float Aux::FastFabs(float x)
+{
+    return x < 0.0f ? -x : x;
+}
+
+// ------------------------------------------------------------------------------------------------------- //
+
+// Name:        FastFabs
+// Description: Computes the absolute value of a double number using a ternary operator for fast execution
+// Arguments:   x - The double number for which the absolute value is to be computed
+// Returns:     The absolute value of the input number
+
+double Aux::FastFabs(double x) {
+    return x < 0.0 ? -x : x;
 }
 
 // ------------------------------------------------------------------------------------------------------- //

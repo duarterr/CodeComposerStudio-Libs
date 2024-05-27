@@ -267,9 +267,9 @@ class Lcd
 
         // Name:        _InitHardware
         // Description: Starts the TivaC device peripherals required to this application
-        // Arguments:   Config - lcd_config_t struct
+        // Arguments:   None
         // Returns:     None
-        void _InitHardware (lcd_config_t *Config);
+        void _InitHardware ();
 
         // Name:        _SendByte
         // Description: Sends a byte to the LCD controller

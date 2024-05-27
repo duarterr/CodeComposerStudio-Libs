@@ -25,6 +25,13 @@
 #include "driverlib/uart.h"
 
 // ------------------------------------------------------------------------------------------------------- //
+// Initialize the static array and counter
+// ------------------------------------------------------------------------------------------------------- //
+
+Uart* Uart::_Instance[MAX_UARTS] = {nullptr};
+uint8_t Uart::_InstanceCounter = 0;
+
+// ------------------------------------------------------------------------------------------------------- //
 // Functions definitions
 // ------------------------------------------------------------------------------------------------------- //
 
@@ -39,6 +46,9 @@ void Uart::_InitHardware()
     SysCtlPeripheralEnable(_Config.Hardware.PeriphUART);
     SysCtlPeripheralEnable(_Config.Hardware.PeriphGPIO);
 
+    // Wait until last peripheral is ready
+    while(!SysCtlPeripheralReady (_Config.Hardware.PeriphGPIO));
+
     // Unlock used pins (has no effect if pin is not protected by the GPIOCR register
     GPIOUnlockPin(_Config.Hardware.BaseGPIO, _Config.Hardware.PinRX | _Config.Hardware.PinTX);
 
@@ -48,16 +58,13 @@ void Uart::_InitHardware()
     GPIOPinTypeUART(_Config.Hardware.BaseGPIO, _Config.Hardware.PinRX | _Config.Hardware.PinTX);
 
     // Configure UART
-    UARTConfigSetExpClk(_Config.Hardware.BaseUART, SysCtlClockGet(), _Config.Params.BaudRate, _Config.Hardware.Config);
+    UARTConfigSetExpClk(_Config.Hardware.BaseUART, SysCtlClockGet(), _Config.Params.BaudRate, _Config.Params.Mode);
 
     // Register interrupt handler
-    UARTIntRegister(_Config.Hardware.BaseUART, _Config.Hardware.Callback);
+    UARTIntRegister(_Config.Hardware.BaseUART, _IsrStaticCallback);
 
     // Enable interrupt on RX and RX timeout
     UARTIntEnable(_Config.Hardware.BaseUART, UART_INT_RX | UART_INT_RT);
-
-    // Enable interrupt
-    IntEnable(_Config.Hardware.Interrupt);
 
     // Enable the UART module
     UARTEnable(_Config.Hardware.BaseUART);
@@ -78,6 +85,44 @@ void Uart::_BufferPutByte (uint8_t Byte)
 
 // ------------------------------------------------------------------------------------------------------- //
 
+// Name:        _IsrStaticCallback
+// Description: Static callback function for handling interrupts
+// Arguments:   None
+// Returns:     None
+
+void Uart::_IsrStaticCallback()
+{
+    // Iterate over all instances to find the one matching the interrupt
+    for (uint8_t Index = 0; Index < _InstanceCounter; Index++)
+    {
+        // Check if this instance triggered the interrupt and call the instance-specific handler
+        if ((_Instance[Index] != nullptr) && (UARTIntStatus(_Instance[Index]->_Config.Hardware.BaseUART, true)))
+            _Instance[Index]->_IsrRxHandler();
+    }
+}
+
+// ------------------------------------------------------------------------------------------------------- //
+
+// Name:        _IsrRxHandler
+// Description: UART RX interrupt service routine
+// Arguments:   None
+// Returns:     None
+
+void Uart::_IsrRxHandler ()
+{
+    // Loop while there are characters in the receive FIFO
+    while(UARTCharsAvail(_Config.Hardware.BaseUART))
+    {
+        // Read the next character from the UART
+        char Rx = UARTCharGetNonBlocking(_Config.Hardware.BaseUART);
+    }
+
+    // Clear the asserted interrupts
+    UARTIntClear(_Config.Hardware.BaseUART, UARTIntStatus(_Config.Hardware.BaseUART, true));
+}
+
+// ------------------------------------------------------------------------------------------------------- //
+
 // Name:        Uart
 // Description: Constructor of the class with no arguments
 // Arguments:   None
@@ -85,7 +130,9 @@ void Uart::_BufferPutByte (uint8_t Byte)
 
 Uart::Uart()
 {
-
+    // Register the instance in the array
+    if (_InstanceCounter < MAX_UARTS)
+        _Instance[_InstanceCounter++] = this;
 }
 
 // ------------------------------------------------------------------------------------------------------- //
@@ -109,8 +156,8 @@ Uart::Uart(uart_config_t *Config) : Uart()
 
 void Uart::Init(uart_config_t *Config)
 {
-    // Get uart_config_t object parameters and store in a private variable
-    memcpy(&_Config, Config, sizeof(uart_config_t));
+    // Copy config to a private variable
+    _Config = *Config;
 
     //  Initialize hardware
     _InitHardware();
@@ -128,29 +175,6 @@ void Uart::SendString (const char *String)
     // Send all chars of the string
     while (*String)
         _BufferPutByte(*String++);
-}
-
-// ------------------------------------------------------------------------------------------------------- //
-
-// Name:        ReceiveIsr
-// Description: UART RX interrupt service routine
-// Arguments:   None
-// Returns:     None
-
-void Uart::ReceiveIsr ()
-{
-    // Get the interrupt status
-    uint32_t Status = UARTIntStatus(_Config.Hardware.BaseUART, true);
-
-    // Clear the asserted interrupts.
-    UARTIntClear(_Config.Hardware.BaseUART, Status);
-
-    // Loop while there are characters in the receive FIFO
-    while(UARTCharsAvail(_Config.Hardware.BaseUART))
-    {
-        // Read the next character from the UART
-        char Rx = UARTCharGetNonBlocking(_Config.Hardware.BaseUART);
-    }
 }
 
 // ------------------------------------------------------------------------------------------------------- //

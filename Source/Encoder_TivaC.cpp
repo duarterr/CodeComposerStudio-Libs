@@ -25,6 +25,13 @@
 #include "driverlib/qei.h"
 
 // ------------------------------------------------------------------------------------------------------- //
+// Initialize the static array and counter
+// ------------------------------------------------------------------------------------------------------- //
+
+Encoder* Encoder::_Instance[MAX_ENCODERS] = {nullptr};
+uint8_t Encoder::_InstanceCounter = 0;
+
+// ------------------------------------------------------------------------------------------------------- //
 // Functions definitions
 // ------------------------------------------------------------------------------------------------------- //
 
@@ -39,8 +46,8 @@ void Encoder::_InitHardware()
     SysCtlPeripheralEnable (_Config.Hardware.PeriphQEI);
     SysCtlPeripheralEnable (_Config.Hardware.PeriphGPIO);
 
-    // Power up delay
-    SysCtlDelay (10);
+    // Wait until last peripheral is ready
+    while(!SysCtlPeripheralReady (_Config.Hardware.PeriphGPIO));
 
     // Unlock used pins (has no effect if pin is not protected by the GPIOCR register
     GPIOUnlockPin(_Config.Hardware.BaseGPIO, _Config.Hardware.PinA | _Config.Hardware.PinB);
@@ -51,20 +58,60 @@ void Encoder::_InitHardware()
     GPIOPinConfigure(_Config.Hardware.PinMuxB);
 
     // Configure the QEI with defined config and PPR
-    QEIConfigure(_Config.Hardware.BaseQEI, _Config.Hardware.Config, _Config.Params.PPR);
+    QEIConfigure(_Config.Hardware.BaseQEI, QEI_CONFIG_CAPTURE_A_B | QEI_CONFIG_QUADRATURE | _Config.Hardware.Config, _Config.Params.PPR);
 
     // Configure velocity calculation
     QEIVelocityConfigure(_Config.Hardware.BaseQEI, QEI_VELDIV_1, SysCtlClockGet() / _Config.Params.ScanFreq);
     QEIVelocityEnable(_Config.Hardware.BaseQEI);
 
     // Register interrupt handler for velocity timer expiration
-    QEIIntRegister(_Config.Hardware.BaseQEI, _Config.Hardware.Callback);
+    QEIIntRegister(_Config.Hardware.BaseQEI, _IsrStaticCallback);
 
     // Enable QEI interrupt
-    QEIIntEnable(_Config.Hardware.BaseQEI, _Config.Hardware.Interrupt);
+    QEIIntEnable(_Config.Hardware.BaseQEI, QEI_INTTIMER);
 
     // Enable the QEI
     QEIEnable(_Config.Hardware.BaseQEI);
+}
+
+// ------------------------------------------------------------------------------------------------------- //
+
+// Name:        _IsrStaticCallback
+// Description: Static callback function for handling interrupts
+// Arguments:   None
+// Returns:     None
+
+void Encoder::_IsrStaticCallback()
+{
+    // Iterate over all instances to find the one matching the interrupt
+    for (uint8_t Index = 0; Index < _InstanceCounter; Index++)
+    {
+        // Check if this instance triggered the interrupt and call the instance-specific handler
+        if ((_Instance[Index] != nullptr) && (QEIIntStatus(_Instance[Index]->_Config.Hardware.BaseQEI, true) != 0))
+            _Instance[Index]->_IsrTimerVelHandler();
+    }
+}
+
+// ------------------------------------------------------------------------------------------------------- //
+
+// Name:        _IsrTimerVelHandler
+// Description: Velocity timer interrupt service routine
+// Arguments:   None
+// Returns:     None
+
+void Encoder::_IsrTimerVelHandler ()
+{
+    // Clear the interrupt that is generated
+    QEIIntClear(_Config.Hardware.BaseQEI, QEIIntStatus(_Config.Hardware.BaseQEI, true));
+
+    // Get the position reading of the encoder
+    _Data.Pos = QEIPositionGet(_Config.Hardware.BaseQEI);
+
+    // Get the number of quadrature ticks since last call
+    _Data.Vel = QEIVelocityGet(_Config.Hardware.BaseQEI);
+
+    // Get the direction reading of the encoder
+    _Data.Dir = QEIDirectionGet(_Config.Hardware.BaseQEI);
 }
 
 // ------------------------------------------------------------------------------------------------------- //
@@ -76,7 +123,9 @@ void Encoder::_InitHardware()
 
 Encoder::Encoder()
 {
-
+    // Register the instance in the array
+    if (_InstanceCounter < MAX_ENCODERS)
+        _Instance[_InstanceCounter++] = this;
 }
 
 // ------------------------------------------------------------------------------------------------------- //
@@ -100,8 +149,8 @@ Encoder::Encoder(encoder_config_t *Config) : Encoder()
 
 void Encoder::Init(encoder_config_t *Config)
 {
-    // Get encoder_config_t object parameters and store in a private variable
-    memcpy(&_Config, Config, sizeof(encoder_config_t));
+    // Copy config to a private variable
+    _Config = *Config;
 
     //  Initialize hardware
     _InitHardware();
@@ -111,14 +160,13 @@ void Encoder::Init(encoder_config_t *Config)
 
 // Name:        GetData
 // Description: Gets all encoder data
-// Arguments:   Encoder - encoder_data_t struct to receive data
+// Arguments:   Buffer - encoder_data_t struct to receive data
 // Returns:     None
 
-void Encoder::GetData (encoder_data_t *Data)
+void Encoder::GetData (encoder_data_t *Buffer)
 {
-    Data->Pos = _Data.Pos;
-    Data->Vel = _Data.Vel;
-    Data->Dir = _Data.Dir;
+    if (Buffer != nullptr)
+        *Buffer = _Data;
 }
 
 // ------------------------------------------------------------------------------------------------------- //
@@ -169,28 +217,6 @@ uint32_t Encoder::GetVel ()
 int32_t Encoder::GetDir ()
 {
     return _Data.Dir;
-}
-
-// ------------------------------------------------------------------------------------------------------- //
-
-// Name:        TimerIsr
-// Description: Velocity timer interrupt service routine
-// Arguments:   None
-// Returns:     None
-
-void Encoder::TimerIsr ()
-{
-    // Clear the interrupt that is generated
-    QEIIntClear(_Config.Hardware.BaseQEI, QEIIntStatus(_Config.Hardware.BaseQEI, true));
-
-    // Get the position reading of the encoder
-    _Data.Pos = QEIPositionGet(_Config.Hardware.BaseQEI);
-
-    // Get the number of quadrature ticks since last call
-    _Data.Vel = QEIVelocityGet(_Config.Hardware.BaseQEI);
-
-    // Get the direction reading of the encoder
-    _Data.Dir = QEIDirectionGet(_Config.Hardware.BaseQEI);
 }
 
 // ------------------------------------------------------------------------------------------------------- //

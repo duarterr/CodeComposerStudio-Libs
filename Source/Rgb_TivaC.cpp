@@ -6,6 +6,13 @@
 // E-mail: duarte.renan@hotmail.com
 // Date:   20/05/2024
 
+// Overview:
+
+//      This library provides functionality for controlling RGB LEDs on a Tiva C microcontroller. It
+//      allows the user to set the color of the RGB LED with or without fade transitions.
+//      The library supports a maximum of MAX_RGB_LEDS instances.
+//      The fade service runs at the same frequency as the LED PWM, so maximum fade time is 1/PwmFrequency
+
 // ------------------------------------------------------------------------------------------------------- //
 
 // ------------------------------------------------------------------------------------------------------- //
@@ -26,6 +33,14 @@
 #include "driverlib/interrupt.h"
 #include "driverlib/pwm.h"
 #include "driverlib/sysctl.h"
+#include "driverlib/timer.h"
+
+// ------------------------------------------------------------------------------------------------------- //
+// Initialize the static array and counter
+// ------------------------------------------------------------------------------------------------------- //
+
+Rgb* Rgb::_Instance[MAX_RGB_LEDS] = {nullptr};
+uint8_t Rgb::_InstanceCounter = 0;
 
 // ------------------------------------------------------------------------------------------------------- //
 // Functions definitions
@@ -41,9 +56,10 @@ void Rgb::_InitHardware()
     // Enable peripheral clocks
     SysCtlPeripheralEnable(_Config.Periph.Pwm);
     SysCtlPeripheralEnable(_Config.Periph.Gpio);
+    SysCtlPeripheralEnable(_Config.Periph.Timer);
 
-    // Power up delay
-    SysCtlDelay(10);
+    // Wait until last peripheral is ready
+    while(!SysCtlPeripheralReady (_Config.Periph.Timer));
 
     // Unlock used pins (has no effect if pin is not protected by the GPIOCR register
     GPIOUnlockPin(_Config.Base.Gpio, _Config.Pin.R | _Config.Pin.G | _Config.Pin.B);
@@ -55,25 +71,12 @@ void Rgb::_InitHardware()
     GPIOPinConfigure (_Config.PinMux.B);
 
     // Configure PWM options
-    PWMGenConfigure (_Config.Base.Pwm, _Config.Gen.R, _Config.Params.PwmMode);
-    PWMGenConfigure (_Config.Base.Pwm, _Config.Gen.G, _Config.Params.PwmMode);
-    PWMGenConfigure (_Config.Base.Pwm, _Config.Gen.B, _Config.Params.PwmMode);
+    PWMGenConfigure (_Config.Base.Pwm, _Config.Gen.R, PWM_GEN_MODE_DOWN | PWM_GEN_MODE_DBG_RUN);
+    PWMGenConfigure (_Config.Base.Pwm, _Config.Gen.G, PWM_GEN_MODE_DOWN | PWM_GEN_MODE_DBG_RUN);
+    PWMGenConfigure (_Config.Base.Pwm, _Config.Gen.B, PWM_GEN_MODE_DOWN | PWM_GEN_MODE_DBG_RUN);
 
     // Set the PWM frequency
     _SetPwmFrequency (_Config.Params.PwmFrequency);
-
-    // Set initial color - Off
-    SetColor (_NewColor, 0);
-
-    // Interrupt on zero count
-    PWMGenIntTrigEnable(_Config.Base.Pwm, _Config.Gen.R, PWM_INT_CNT_ZERO);
-
-    // Register interrupt handler
-    PWMGenIntRegister(_Config.Base.Pwm, _Config.Gen.R, _Config.Int.Callback);
-
-    // Enable interrupt
-    PWMIntEnable(_Config.Base.Pwm, _Config.Int.Gen);
-    IntEnable(_Config.Int.Interrupt);
 
     // Turn on the output pins
     PWMOutputState (_Config.Base.Pwm, _Config.OutBit.R | _Config.OutBit.G | _Config.OutBit.B , true);
@@ -82,6 +85,125 @@ void Rgb::_InitHardware()
     PWMGenEnable (_Config.Base.Pwm, _Config.Gen.R);
     PWMGenEnable (_Config.Base.Pwm, _Config.Gen.G);
     PWMGenEnable (_Config.Base.Pwm, _Config.Gen.B);
+
+    // Configure timer mode
+    TimerConfigure(_Config.Base.Timer, TIMER_CFG_PERIODIC);
+
+    // Set timer period
+    uint32_t timerPeriod = (SysCtlClockGet()/_Config.Params.PwmFrequency) - 1;
+    TimerLoadSet(_Config.Base.Timer, TIMER_A, timerPeriod);
+
+    // Register interrupt handler
+    TimerIntRegister (_Config.Base.Timer, TIMER_A, _IsrTimerStaticCallback);
+
+    // Enable interrupt on timer timeout
+    TimerIntEnable(_Config.Base.Timer, TIMER_TIMA_TIMEOUT);
+
+    // Set initial color - Off
+    SetColor (_NewColor, 0);
+}
+
+// ------------------------------------------------------------------------------------------------------- //
+
+// Name:        _IsrTimerStaticCallback
+// Description: Static callback function for handling timer interrupts
+// Arguments:   None
+// Returns:     None
+
+void Rgb::_IsrTimerStaticCallback()
+{
+    // Iterate over all instances to find the one matching the interrupt
+    for (uint8_t Index = 0; Index < _InstanceCounter; Index++)
+    {
+        // Check if this instance triggered the interrupt and call the instance-specific handler
+        if ((_Instance[Index] != nullptr) && (TimerIntStatus(_Instance[Index]->_Config.Base.Timer, true) != 0))
+            _Instance[Index]->_IsrTimerHandler();
+    }
+}
+
+// ------------------------------------------------------------------------------------------------------- //
+
+// Name:        _IsrTimerHandler
+// Description: Timer interrupt service routine
+// Arguments:   None
+// Returns:     None
+
+void Rgb::_IsrTimerHandler ()
+{
+    // Clear interrupt flag
+    TimerIntClear (_Config.Base.Timer, TIMER_TIMA_TIMEOUT);
+
+    // Fade to desired color
+    _FadeService();
+}
+
+// ------------------------------------------------------------------------------------------------------- //
+
+// Name:        _FadeService
+// Description: Fade service to ensure proper color transitions
+// Arguments:   None
+// Returns:     None
+
+void Rgb::_FadeService()
+{
+    static bool _IsFading = false;
+    static uint16_t _StepSkipR = 0;
+    static uint16_t _StepSkipG = 0;
+    static uint16_t _StepSkipB = 0;
+
+    // Make sure PWM frequency is right (may change if PWM clock is divided externally)
+    _SetPwmFrequency(_Config.Params.PwmFrequency);
+
+    // Fade to new color
+    if (_FadeSteps != 0 && !_ColorsAreEqual(_CurrentColor, _NewColor))
+    {
+        // Not already fading
+        if (!_IsFading)
+        {
+            // Reset variables
+            _StepCounter = 0;
+            _IsFading = true;
+
+            // Calculate number of steps to skip for each color component
+            _StepSkipR = _CalculateStepSkip(_NewColor.R, _CurrentColor.R, _FadeSteps);
+            _StepSkipG = _CalculateStepSkip(_NewColor.G, _CurrentColor.G, _FadeSteps);
+            _StepSkipB = _CalculateStepSkip(_NewColor.B, _CurrentColor.B, _FadeSteps);
+        }
+
+        // Increase step counter
+        _StepCounter++;
+
+        // Change color components
+        if ((_StepCounter % _StepSkipR) == 0)
+            _CurrentColor.R += (_NewColor.R > _CurrentColor.R ? 1 : -1);
+
+        if ((_StepCounter % _StepSkipG) == 0)
+            _CurrentColor.G += (_NewColor.G > _CurrentColor.G ? 1 : -1);
+
+        if ((_StepCounter % _StepSkipB) == 0)
+            _CurrentColor.B += (_NewColor.B > _CurrentColor.B ? 1 : -1);
+
+        // Fade is complete
+        if (_StepCounter >= _FadeSteps)
+        {
+            _CurrentColor = _NewColor;
+            _IsFading = false;
+        }
+    }
+
+    // No fade
+    else
+    {
+        _CurrentColor = _NewColor;
+        _IsFading = false;
+        TimerDisable(_Config.Base.Timer, TIMER_A);
+    }
+
+    // Define and apply duty cycles
+    uint16_t DutyR = (uint16_t) (Aux::Map(_CurrentColor.R, 0, 255, 1, _PwmPeriod));
+    uint16_t DutyG = (uint16_t) (Aux::Map(_CurrentColor.G, 0, 255, 1, _PwmPeriod));
+    uint16_t DutyB = (uint16_t) (Aux::Map(_CurrentColor.B, 0, 255, 1, _PwmPeriod));
+    _SetPwmDuty(DutyR, DutyG, DutyB);
 }
 
 // ------------------------------------------------------------------------------------------------------- //
@@ -207,7 +329,9 @@ uint16_t Rgb::_CalculateStepSkip(uint16_t NewValue, uint16_t CurrentValue, uint1
 
 Rgb::Rgb()
 {
-
+    // Register the instance in the array
+    if (_InstanceCounter < MAX_RGB_LEDS)
+        _Instance[_InstanceCounter++] = this;
 }
 
 // ------------------------------------------------------------------------------------------------------- //
@@ -225,14 +349,14 @@ Rgb::Rgb(rgb_config_t *Config) : Rgb()
 // ------------------------------------------------------------------------------------------------------- //
 
 // Name:        Init
-// Description: Starts device peripherals and application state machine
+// Description: Starts device peripherals and application logic
 // Arguments:   Config - rgb_config_t struct
 // Returns:     None
 
 void Rgb::Init(rgb_config_t *Config)
 {
-    // Get rgb_config_t object parameters and store in a "private" variable
-    memcpy(&_Config, Config, sizeof(rgb_config_t));
+    // Copy config to a private variable
+    _Config = *Config;
 
     //  Initialize hardware
     _InitHardware();
@@ -248,11 +372,15 @@ void Rgb::Init(rgb_config_t *Config)
 
 void Rgb::SetColor(rgb_color_t Color, uint16_t FadeTime)
 {
-    _NewColor.R = Color.R;
-    _NewColor.G = Color.G;
-    _NewColor.B = Color.B;
-
+    _StepCounter = 0;
+    _NewColor = Color;
     _FadeSteps = (FadeTime != 0) * (FadeTime*1000) / _Config.Params.PwmFrequency;
+
+    // Limit fade steps
+    if (_FadeSteps > _Config.Params.PwmFrequency)
+        _FadeSteps = _Config.Params.PwmFrequency;
+
+    TimerEnable(_Config.Base.Timer, TIMER_A);
 }
 
 // Name:        GetColor
@@ -262,79 +390,11 @@ void Rgb::SetColor(rgb_color_t Color, uint16_t FadeTime)
 
 void Rgb::GetColor(rgb_color_t *Buffer)
 {
-    Buffer->R = _CurrentColor.R;
-    Buffer->G = _CurrentColor.G;
-    Buffer->B = _CurrentColor.B;
-}
-
-// ------------------------------------------------------------------------------------------------------- //
-
-// Name:        PwmIsr
-// Description: PWM interrupt service routine
-// Arguments:   None
-// Returns:     None
-
-void Rgb::PwmIsr ()
-{
-    static bool _IsFading = false;
-    static uint16_t _StepSkipR = 0;
-    static uint16_t _StepSkipG = 0;
-    static uint16_t _StepSkipB = 0;
-
-    // Make sure PWM frequency is right (may change if PWM clock is divided externally)
-    _SetPwmFrequency (_Config.Params.PwmFrequency);
-
-    // Fade to new color
-    if (_FadeSteps != 0 && !_ColorsAreEqual(_CurrentColor, _NewColor))
-    {
-        // Not already fading
-        if (!_IsFading)
-        {
-            // Reset variables
-            _StepCounter = 0;
-            _IsFading = true;
-
-            // Calculate number of steps to skip for each color component
-            _StepSkipR = _CalculateStepSkip(_NewColor.R, _CurrentColor.R, _FadeSteps);
-            _StepSkipG = _CalculateStepSkip(_NewColor.G, _CurrentColor.G, _FadeSteps);
-            _StepSkipB = _CalculateStepSkip(_NewColor.B, _CurrentColor.B, _FadeSteps);
-        }
-
-        // Increase step counter
-        _StepCounter++;
-
-        // Change color components
-        if ((_StepCounter % _StepSkipR) == 0)
-            _CurrentColor.R += (_NewColor.R > _CurrentColor.R ? 1 : -1);
-        if ((_StepCounter % _StepSkipG) == 0)
-            _CurrentColor.G += (_NewColor.G > _CurrentColor.G ? 1 : -1);
-        if ((_StepCounter % _StepSkipB) == 0)
-            _CurrentColor.B += (_NewColor.B > _CurrentColor.B ? 1 : -1);
-
-        // Fade is complete
-        if (_StepCounter >= _FadeSteps)
-        {
-            _CurrentColor = _NewColor;
-            _IsFading = false;
-        }
+    // Check if the provided buffer is valid
+    if (Buffer != nullptr) {
+        // Copy the current color to the provided buffer
+        *Buffer = _CurrentColor;
     }
-
-    // No fade
-    else
-    {
-        _CurrentColor = _NewColor;
-        _IsFading = false;
-    }
-
-    // Define and apply duty cycles
-    uint16_t DutyR = (uint16_t)Aux::Map(_CurrentColor.R, 0, 255, 1, _PwmPeriod);
-    uint16_t DutyG = (uint16_t)Aux::Map(_CurrentColor.G, 0, 255, 1, _PwmPeriod);
-    uint16_t DutyB = (uint16_t)Aux::Map(_CurrentColor.B, 0, 255, 1, _PwmPeriod);
-
-    _SetPwmDuty(DutyR, DutyG, DutyB);
-
-    // Clear interrupt flag
-    PWMGenIntClear(_Config.Base.Pwm, _Config.Gen.R, PWM_INT_CNT_ZERO);
 }
 
 // ------------------------------------------------------------------------------------------------------- //

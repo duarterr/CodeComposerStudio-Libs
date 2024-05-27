@@ -45,6 +45,20 @@ class Aux
         // Returns:     Scaled value
         static float Map(float Value, float InMin, float InMax, float OutMin, float OutMax);
 
+        // Name:        Min
+        // Description: Returns the smaller of two floating-point numbers
+        // Arguments:   a - The first floating-point number
+        //              b - The second floating-point number
+        // Returns:     The smaller of the two floating-point numbers
+        static float Min(float a, float b);
+
+        // Name:        Max
+        // Description: Returns the larger of two floating-point numbers
+        // Arguments:   a - The first floating-point number
+        //              b - The second floating-point number
+        // Returns:     The larger of the two floating-point numbers
+        static float Max(float a, float b);
+
         // Name:        Strcpy
         // Description: Copy one string to another
         // Arguments:   Destination - Destination string
@@ -75,6 +89,18 @@ class Aux
         //              DecPlaces - The number of decimal places in the resulting string
         // Returns:     The number of characters written to the string buffer
         static uint8_t F2Str(float Number, char* String, uint8_t DecPlaces);
+
+        // Name:        FastFabs
+        // Description: Computes the absolute value of a float number using a ternary operator for fast execution
+        // Arguments:   x - The float number for which the absolute value is to be computed
+        // Returns:     The absolute value of the input number
+        static float FastFabs(float x);
+
+        // Name:        FastFabs
+        // Description: Computes the absolute value of a double number using a ternary operator for fast execution
+        // Arguments:   x - The double number for which the absolute value is to be computed
+        // Returns:     The absolute value of the input number
+        static double FastFabs(double x);
 };
 
 // ------------------------------------------------------------------------------------------------------- //

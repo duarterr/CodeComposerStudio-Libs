@@ -24,6 +24,12 @@ extern "C"
 #include <stdint.h>
 
 // ------------------------------------------------------------------------------------------------------- //
+// Definitions
+// ------------------------------------------------------------------------------------------------------- //
+
+#define MAX_UARTS 1                 // Maximum number of UART instances
+
+// ------------------------------------------------------------------------------------------------------- //
 // Structs
 // ------------------------------------------------------------------------------------------------------- //
 
@@ -38,15 +44,13 @@ typedef struct
     uint32_t PinMuxTX;              // GPIO pin config TX
     uint32_t PinRX;                 // GPIO pin RX
     uint32_t PinTX;                 // GPIO pin TX
-    uint32_t Config;                // GPIO config
-    uint32_t Interrupt;             // SSI interrupt
-    void (*Callback)(void);         // Pointer to callback function - Callback = [](){ObjectName.ReceiveIsr();}
 } uart_hardware_t;
 
 // UART parameters structure
 typedef struct
 {
     uint32_t BaudRate;              // Baud rate (bps)
+    uint32_t Mode;                  // UART config
 } uart_params_t;
 
 // Button configuration structure
@@ -68,6 +72,12 @@ class Uart
 
     private:
 
+        // Array to store pointers to instances
+        static Uart* _Instance[MAX_UARTS];
+
+        // Counter to keep track of the number of instances
+        static uint8_t _InstanceCounter;
+
         // UART configuration object
         uart_config_t _Config;
 
@@ -82,6 +92,18 @@ class Uart
         // Arguments:   Byte - Byte to be put
         // Returns:     None
         void _BufferPutByte (uint8_t Byte);
+
+        // Name:        _IsrStaticCallback
+        // Description: Static callback function for handling interrupts
+        // Arguments:   None
+        // Returns:     None
+        static void _IsrStaticCallback();
+
+        // Name:        _IsrRxHandler
+        // Description: UART RX interrupt service routine
+        // Arguments:   None
+        // Returns:     None
+        void _IsrRxHandler ();
 
     // --------------------------------------------------------------------------------------------------- //
     // Public members

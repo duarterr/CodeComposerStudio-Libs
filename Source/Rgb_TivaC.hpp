@@ -6,6 +6,14 @@
 // E-mail: duarte.renan@hotmail.com
 // Date:   20/05/2024
 
+
+// Overview:
+
+//      This library provides functionality for controlling RGB LEDs on a Tiva C microcontroller. It
+//      allows the user to set the color of the RGB LED with or without fade transitions.
+//      The library supports a maximum of MAX_RGB_LEDS instances.
+//      The fade service runs at the same frequency as the LED PWM, so maximum fade time is 1/PwmFrequency
+
 // ------------------------------------------------------------------------------------------------------- //
 
 #ifndef RGB_TIVAC_H_
@@ -24,6 +32,12 @@ extern "C"
 #include <stdint.h>
 
 // ------------------------------------------------------------------------------------------------------- //
+// Definitions
+// ------------------------------------------------------------------------------------------------------- //
+
+#define MAX_RGB_LEDS 1              // Maximum number of RGB LED instances
+
+// ------------------------------------------------------------------------------------------------------- //
 // Structs
 // ------------------------------------------------------------------------------------------------------- //
 
@@ -32,37 +46,39 @@ typedef struct
 {
     uint32_t Pwm;                   // PWM peripheral
     uint32_t Gpio;                  // GPIO peripheral
+    uint32_t Timer;                 // Timer peripheral
 } rgb_periph_t;
 
 // Bases
 typedef struct
 {
-    uint32_t Pwm;                   // PWM base R
+    uint32_t Pwm;                   // PWM base
     uint32_t Gpio;                  // GPIO base
+    uint32_t Timer;                 // Timer base
 } rgb_base_t;
 
 // PWM generators
 typedef struct
 {
-    uint32_t R;
-    uint32_t G;
-    uint32_t B;
+    uint32_t R;                     // PWM generator for Red
+    uint32_t G;                     // PWM generator for Green
+    uint32_t B;                     // PWM generator for Blue
 } rgb_pwm_gen_t;
 
 // PWM output struct
 typedef struct
 {
-    uint32_t R;
-    uint32_t G;
-    uint32_t B;
+    uint32_t R;                     // PWM output for Red
+    uint32_t G;                     // PWM output for Green
+    uint32_t B;                     // PWM output for Blue
 } rgb_pwm_out_t;
 
 // PWM output bit struct
 typedef struct
 {
-    uint32_t R;
-    uint32_t G;
-    uint32_t B;
+    uint32_t R;                     // PWM output bit for Red
+    uint32_t G;                     // PWM output bit for Green
+    uint32_t B;                     // PWM output bit for Blue
 } rgb_pwm_out_bit_t;
 
 // PWM interrupt struct
@@ -70,29 +86,27 @@ typedef struct
 {
     uint32_t Interrupt;             // PWM interrupt
     uint32_t Gen;                   // PWM interrupt generator
-    void (*Callback)(void);         // Pointer to callback function - Callback = [](){ObjectName.PwmIsr();}
 } pwm_interrupt_t;
 
 // Pin mux configs
 typedef struct
 {
-    uint32_t R;
-    uint32_t G;
-    uint32_t B;
+    uint32_t R;                     // Pin mux configuration for Red
+    uint32_t G;                     // Pin mux configuration for Green
+    uint32_t B;                     // Pin mux configuration for Blue
 } rgb_pin_mux_t;
 
 // LED pins
 typedef struct
 {
-    uint32_t R;
-    uint32_t G;
-    uint32_t B;
+    uint32_t R;                     // Red LED pin
+    uint32_t G;                     // Green LED pin
+    uint32_t B;                     // Blue LED pin
 } rgb_pin_t;
 
 // RGB parameters structure
 typedef struct
 {
-    uint32_t PwmMode;               // PWM mode configuration
     uint16_t PwmFrequency;          // PWM frequency (Hz)
 } rgb_params_t;
 
@@ -113,9 +127,9 @@ typedef struct
 // RGB LED color structure
 typedef struct
 {
-    uint8_t R;  // Red value (0 to 255)
-    uint8_t G;  // Green value (0 to 255)
-    uint8_t B;  // Blue value (0 to 255)
+    uint8_t R;                      // Red value (0 to 255)
+    uint8_t G;                      // Green value (0 to 255)
+    uint8_t B;                      // Blue value (0 to 255)
 } rgb_color_t;
 
 /* ------------------------------------------------------------------------------------------------------- */
@@ -143,6 +157,12 @@ class Rgb
 
     private:
 
+        // Array to store pointers to instances
+        static Rgb* _Instance[MAX_RGB_LEDS];
+
+        // Counter to keep track of the number of instances
+        static uint8_t _InstanceCounter;
+
         // RGB configuration object
         rgb_config_t _Config;
 
@@ -160,6 +180,24 @@ class Rgb
         // Arguments:   None
         // Returns:     None
         void _InitHardware();
+
+        // Name:        _IsrTimerStaticCallback
+        // Description: Static callback function for handling timer interrupts
+        // Arguments:   None
+        // Returns:     None
+        static void _IsrTimerStaticCallback();
+
+        // Name:        _IsrTimerHandler
+        // Description: Timer interrupt service routine
+        // Arguments:   None
+        // Returns:     None
+        void _IsrTimerHandler ();
+
+        // Name:        _FadeService
+        // Description: Fade service to ensure proper color transitions
+        // Arguments:   None
+        // Returns:     None
+        void _FadeService();
 
         // Name:        _SetPwmFrequency
         // Description: Changes PWM modules frequency
@@ -230,12 +268,6 @@ class Rgb
         // Arguments:   Buffer - Pointer rgb_color_t structure where values will be saved (0x00 to 0xFF values)
         // Returns:     None
         void GetColor(rgb_color_t *Buffer);
-
-        // Name:        PwmIsr
-        // Description: PWM interrupt service routine
-        // Arguments:   None
-        // Returns:     None
-        void PwmIsr ();
 };
 
 // ------------------------------------------------------------------------------------------------------- //

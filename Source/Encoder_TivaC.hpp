@@ -24,6 +24,12 @@ extern "C"
 #include <stdint.h>
 
 // ------------------------------------------------------------------------------------------------------- //
+// Definitions
+// ------------------------------------------------------------------------------------------------------- //
+
+#define MAX_ENCODERS 2              // Maximum number of encoder instances
+
+// ------------------------------------------------------------------------------------------------------- //
 // Structs
 // ------------------------------------------------------------------------------------------------------- //
 
@@ -39,8 +45,6 @@ typedef struct
     uint32_t PinA;                  // GPIO pin A
     uint32_t PinB;                  // GPIO pin B
     uint32_t Config;                // QEI module configuration
-    uint32_t Interrupt;             // QEI interrupt
-    void (*Callback)(void);         // Pointer to callback function - Callback = [](){ObjectName.TimerIsr();}
 } encoder_hardware_t;
 
 // Encoder parameters structure
@@ -84,6 +88,12 @@ class Encoder
 
     private:
 
+        // Array to store pointers to instances
+        static Encoder* _Instance[MAX_ENCODERS];
+
+        // Counter to keep track of the number of instances
+        static uint8_t _InstanceCounter;
+
         // Encoder configuration object
         encoder_config_t _Config;
 
@@ -95,6 +105,18 @@ class Encoder
         // Arguments:   None
         // Returns:     None
         void _InitHardware();
+
+        // Name:        _IsrStaticCallback
+        // Description: Static callback function for handling interrupts
+        // Arguments:   None
+        // Returns:     None
+        static void _IsrStaticCallback();
+
+        // Name:        _IsrTimerVelHandler
+        // Description: Velocity timer interrupt service routine
+        // Arguments:   None
+        // Returns:     None
+        void _IsrTimerVelHandler ();
 
     // --------------------------------------------------------------------------------------------------- //
     // Public members
@@ -122,9 +144,9 @@ class Encoder
 
         // Name:        GetData
         // Description: Gets all encoder data
-        // Arguments:   Encoder - encoder_data_t struct to receive data
+        // Arguments:   Buffer - encoder_data_t struct to receive data
         // Returns:     None
-        void GetData (encoder_data_t *Encoder);
+        void GetData (encoder_data_t *Buffer);
 
         // Name:        GetPos
         // Description: Gets encoder position
@@ -149,12 +171,6 @@ class Encoder
         // Arguments:   None
         // Returns:     Encoder direction read in last scan
         int32_t GetDir ();
-
-        // Name:        TimerIsr
-        // Description: Velocity timer interrupt service routine
-        // Arguments:   None
-        // Returns:     None
-        void TimerIsr ();
 };
 
 // ------------------------------------------------------------------------------------------------------- //

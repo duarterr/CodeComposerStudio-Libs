@@ -46,8 +46,8 @@ void Button::_InitHardware()
     // Enable peripheral clock
     SysCtlPeripheralEnable(_Config.Hardware.Periph);
 
-    // Power up delay
-    SysCtlDelay(10);
+    // Wait until peripheral is ready
+    while(!SysCtlPeripheralReady (_Config.Hardware.Periph));
 
     // Unlock used pins (has no effect if pin is not protected by the GPIOCR register
     GPIOUnlockPin(_Config.Hardware.Base, _Config.Hardware.Pin);
@@ -118,8 +118,8 @@ Button::Button(button_config_t *Config) : Button()
 
 void Button::Init(button_config_t *Config)
 {
-    // Get button_config_t object parameters and store in a "private" variable
-    memcpy(&_Config, Config, sizeof(button_config_t));
+    // Copy config to a private variable
+    _Config = *Config;
 
     //  Initialize hardware
     _InitHardware();

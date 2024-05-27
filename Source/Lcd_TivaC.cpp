@@ -141,14 +141,11 @@ bool Lcd::_SpiIsBusy ()
 
 // Name:        _InitHardware
 // Description: Starts the TivaC device peripherals required to this application
-// Arguments:   Config - lcd_config_t struct
+// Arguments:   None
 // Returns:     None
 
-void Lcd::_InitHardware (lcd_config_t *Config)
+void Lcd::_InitHardware ()
 {
-    // Get lcd_config_t object parameters and store in a "private" variable
-    memcpy(&_Config, Config, sizeof(lcd_config_t));
-
     // Enable peripherals
     SysCtlPeripheralEnable (_Config.Periph.Ssi);
     SysCtlPeripheralEnable (_Config.Periph.Sclk);
@@ -156,6 +153,9 @@ void Lcd::_InitHardware (lcd_config_t *Config)
     SysCtlPeripheralEnable (_Config.Periph.Sce);
     SysCtlPeripheralEnable (_Config.Periph.Dc);
     SysCtlPeripheralEnable (_Config.Periph.Bkl);
+
+    // Wait until last peripheral is ready
+    while(!SysCtlPeripheralReady (_Config.Periph.Bkl));
 
     // Configure SSI pins
     GPIOUnlockPin(_Config.Base.Dn, _Config.Pin.Dn);
@@ -296,8 +296,11 @@ Lcd::Lcd(lcd_config_t *Config) : Lcd()
 
 void Lcd::Init (lcd_config_t *Config)
 {
+    // Copy config to a private variable
+    _Config = *Config;
+
     // Configure peripherals
-    _InitHardware (Config);
+    _InitHardware ();
 
     // Send Startup commands
     _SendByte (LCD_COMMAND, PCD8544_FUNCTIONSET | PCD8544_EXTENDEDINSTRUCTION);
