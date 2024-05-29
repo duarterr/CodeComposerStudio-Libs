@@ -61,7 +61,7 @@ void Uart::_InitHardware()
     UARTConfigSetExpClk(_Config.Hardware.BaseUART, SysCtlClockGet(), _Config.Params.BaudRate, _Config.Params.Mode);
 
     // Register interrupt handler
-    UARTIntRegister(_Config.Hardware.BaseUART, _IsrStaticCallback);
+    UARTIntRegister(_Config.Hardware.BaseUART, _IsrRxStaticCallback);
 
     // Enable interrupt on RX and RX timeout
     UARTIntEnable(_Config.Hardware.BaseUART, UART_INT_RX | UART_INT_RT);
@@ -85,12 +85,12 @@ void Uart::_BufferPutByte (uint8_t Byte)
 
 // ------------------------------------------------------------------------------------------------------- //
 
-// Name:        _IsrStaticCallback
+// Name:        _IsrRxStaticCallback
 // Description: Static callback function for handling interrupts
 // Arguments:   None
 // Returns:     None
 
-void Uart::_IsrStaticCallback()
+void Uart::_IsrRxStaticCallback()
 {
     // Iterate over all instances to find the one matching the interrupt
     for (uint8_t Index = 0; Index < _InstanceCounter; Index++)

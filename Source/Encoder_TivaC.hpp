@@ -106,11 +106,11 @@ class Encoder
         // Returns:     None
         void _InitHardware();
 
-        // Name:        _IsrStaticCallback
+        // Name:        _IsrVelStaticCallback
         // Description: Static callback function for handling interrupts
         // Arguments:   None
         // Returns:     None
-        static void _IsrStaticCallback();
+        static void _IsrVelStaticCallback();
 
         // Name:        _IsrTimerVelHandler
         // Description: Velocity timer interrupt service routine

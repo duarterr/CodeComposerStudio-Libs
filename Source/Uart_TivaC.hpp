@@ -93,11 +93,11 @@ class Uart
         // Returns:     None
         void _BufferPutByte (uint8_t Byte);
 
-        // Name:        _IsrStaticCallback
+        // Name:        _IsrRxStaticCallback
         // Description: Static callback function for handling interrupts
         // Arguments:   None
         // Returns:     None
-        static void _IsrStaticCallback();
+        static void _IsrRxStaticCallback();
 
         // Name:        _IsrRxHandler
         // Description: UART RX interrupt service routine

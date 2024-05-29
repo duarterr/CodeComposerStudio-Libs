@@ -61,11 +61,11 @@ void Encoder::_InitHardware()
     QEIConfigure(_Config.Hardware.BaseQEI, QEI_CONFIG_CAPTURE_A_B | QEI_CONFIG_QUADRATURE | _Config.Hardware.Config, _Config.Params.PPR);
 
     // Configure velocity calculation
-    QEIVelocityConfigure(_Config.Hardware.BaseQEI, QEI_VELDIV_1, SysCtlClockGet() / _Config.Params.ScanFreq);
+    QEIVelocityConfigure(_Config.Hardware.BaseQEI, QEI_VELDIV_16, (SysCtlClockGet() >> 4) / _Config.Params.ScanFreq);
     QEIVelocityEnable(_Config.Hardware.BaseQEI);
 
     // Register interrupt handler for velocity timer expiration
-    QEIIntRegister(_Config.Hardware.BaseQEI, _IsrStaticCallback);
+    QEIIntRegister(_Config.Hardware.BaseQEI, _IsrVelStaticCallback);
 
     // Enable QEI interrupt
     QEIIntEnable(_Config.Hardware.BaseQEI, QEI_INTTIMER);
@@ -76,12 +76,12 @@ void Encoder::_InitHardware()
 
 // ------------------------------------------------------------------------------------------------------- //
 
-// Name:        _IsrStaticCallback
+// Name:        _IsrVelStaticCallback
 // Description: Static callback function for handling interrupts
 // Arguments:   None
 // Returns:     None
 
-void Encoder::_IsrStaticCallback()
+void Encoder::_IsrVelStaticCallback()
 {
     // Iterate over all instances to find the one matching the interrupt
     for (uint8_t Index = 0; Index < _InstanceCounter; Index++)
