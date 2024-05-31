@@ -134,13 +134,13 @@ class Encoder
         // Description: Constructor of the class with encoder_config_t struct as argument
         // Arguments:   Config - encoder_config_t struct
         // Returns:     None
-        Encoder(encoder_config_t *Config);
+        Encoder(const encoder_config_t *Config);
 
         // Name:        Init
         // Description: Starts device peripherals
         // Arguments:   Config - encoder_config_t struct
         // Returns:     None
-        void Init(encoder_config_t *Config);
+        void Init(const encoder_config_t *Config);
 
         // Name:        GetData
         // Description: Gets all encoder data

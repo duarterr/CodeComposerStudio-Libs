@@ -61,7 +61,6 @@ extern "C"
 
 // Standard libraries
 #include <stdint.h>
-#include "stdlib.h"
 
 // ------------------------------------------------------------------------------------------------------- //
 // PCD8544 LCD controller definitions - Do not modify
@@ -180,301 +179,194 @@ typedef struct
 } lcd_config_t;
 
 // ------------------------------------------------------------------------------------------------------- //
-// Class prototype
+// Function prototypes
 // ------------------------------------------------------------------------------------------------------- //
 
-class Lcd
-{
-    // --------------------------------------------------------------------------------------------------- //
-    // Private members
-    // --------------------------------------------------------------------------------------------------- //
+// Name:        Lcd_Init
+// Description: Starts the device peripherals, configures the LCD controller and clears display RAM
+// Arguments:   Config - lcd_config_t struct
+// Returns:     None
+void Lcd_Init (const lcd_config_t *Config);
 
-    private:
+// Name:        Lcd_Commit
+// Description: Copy the local buffer to the LCD ram
+// Arguments:   None
+// Returns:     None
+void Lcd_Commit (void);
 
-        // Configuration structure
-        lcd_config_t _Config;
+// ------------------------------------------------------------------------------------------------------- //
 
-        // Current column of the cursor
-        uint8_t _Cursor_Column = 0;
+// Name:        Lcd_ClearRange
+// Description: Clears a range of columns and sets the cursor at the start of the range
+// Arguments:   Bank - Starting bank of the range
+//              Column - Starting column of the range
+//              Length - Number of columns to be clear
+// Returns:     None
+void Lcd_ClearRange (uint8_t Bank, uint8_t Column, uint16_t Length);
 
-        // Current bank of the cursor
-        uint8_t  _Cursor_Bank = 0;
+// Name:        Lcd_ClearBank
+// Description: Clears a bank of the LCD and sets the cursor at the column 0 of this bank
+// Arguments:   Bank - Bank to be clear
+// Returns:     None
+void Lcd_ClearBank (uint8_t Bank);
 
-        // LCD powerdown status
-        lcd_powerdown_t _Active_Status = LCD_PD_OFF;
+// Name:        Lcd_ClearAll
+// Description: Clears the LCD and sets the cursor at bank 0, column 0
+// Arguments:   None
+// Returns:     None
+void Lcd_ClearAll (void);
 
-        // Inverted mode status flag - Non inverted mode at startup
-        lcd_inv_t _Invert_Status = LCD_INV_OFF;
+// ------------------------------------------------------------------------------------------------------- //
 
-        // LCD backlight status flag - Backlight off at startup
-        lcd_backlight_t _Backlight_Status = LCD_BKL_OFF;
+// Name:        Lcd_Goto
+// Description: Sets the LCD cursor position (bank and column)
+// Arguments:   Bank - Desired bank
+//              Column - Desired column
+// Returns:     None
+void Lcd_Goto (uint8_t Bank, uint8_t Column);
 
-        // LCD buffer - Identical copy of the LCD ram
-        uint8_t _Buffer [PCD8544_BANKS][PCD8544_COLUMNS] = {{0}, {0}};
+// Name:        Lcd_GetBank
+// Description: Gets the current bank of the LCD cursor
+// Arguments:   None
+// Returns:     Cursor bank
+uint8_t Lcd_GetBank (void);
 
-        // ----------------------------------------------------------------------------------------------- //
+// Name:        Lcd_GetColumn
+// Description: Gets the current column of the LCD cursor
+// Arguments:   None
+// Returns:     Cursor column
+uint8_t Lcd_GetColumn (void);
 
-        // Name:        _InitHardware
-        // Description: Starts the TivaC device peripherals required to this application
-        // Arguments:   None
-        // Returns:     None
-        void _InitHardware ();
+// ------------------------------------------------------------------------------------------------------- //
 
-        // Name:        _SetSelect
-        // Description: Controls the SCE pin
-        // Arguments:   Select - true to select LCD, false to deselect
-        // Returns:     None
-        void _SetSelect (bool Select);
+// Name:        Lcd_Powerdown
+// Description: Sets or gets LCD powerdown mode
+// Arguments:   Active - lcd_powerdown_t value. LCD_PD_GET returns current powerdown status
+// Returns:     Current powerdown status - lcd_powerdown_t value
+lcd_powerdown_t Lcd_Powerdown (lcd_powerdown_t Active);
 
-        // Name:        _SetDc
-        // Description: Controls the DC pin
-        // Arguments:   Mode - lcd_mode_t value
-        // Returns:     None
-        void _SetDc (lcd_mode_t Mode);
+// Name:        Lcd_Backlight
+// Description: Sets or gets the backlight status
+// Arguments:   Bkl - lcd_backlight_t value. LCD_BKL_GET returns backlight status
+// Returns:     Backlight status - lcd_backlight_t value
+lcd_backlight_t Lcd_Backlight (lcd_backlight_t Bkl);
 
-        // Name:        _SetBkl
-        // Description: Controls the backlight pin
-        // Arguments:   Bkl - lcd_backlight_t value
-        // Returns:     None
-        void _SetBkl (lcd_backlight_t Bkl);
+// Name:        Lcd_Invert
+// Description: Sets or gets inverted mode status
+// Arguments:   Inv - lcd_inv_t value. LCD_INV_GET returns inverted status
+// Returns:     Inverted mode status - lcd_inv_t value
+lcd_inv_t Lcd_Invert (lcd_inv_t Inv);
 
-        // Name:        _LoadSpiBuffer
-        // Description: Loads a byte into the SPI buffer
-        // Arguments:   Byte - Byte to be loades
-        // Returns:     None
-        void _LoadSpiBuffer (uint8_t Byte);
+// ------------------------------------------------------------------------------------------------------- //
 
-        // Name:        _SpiIsBusy
-        // Description: Gets SPI bus status
-        // Arguments:   None
-        // Returns:     SPI busy status
-        bool _SpiIsBusy ();
+// Name:        Lcd_WriteChar
+// Description: Writes a 6x8 px char on the display starting at the current cursor position
+//              Only supports chars in the Lcd_FontBig charset
+// Arguments:   Char - Char to be sent
+//              Font - lcd_font_t value
+//              Mode - Pixel mode - lcd_pixel_mode_t value
+// Returns:     None
+void Lcd_WriteChar (char Char, lcd_font_t Font, lcd_pixel_mode_t Mode);
 
-        // Name:        _SendByte
-        // Description: Sends a byte to the LCD controller
-        // Arguments:   Mode - lcd_mode_t value
-        //              Byte - Byte to be sent
-        // Returns:     None
-        void _SendByte (lcd_mode_t Mode, uint8_t Byte);
+// Name:        Lcd_WriteString
+// Arguments:   String - Pointer to the string to be sent
+//              Font - lcd_font_t value
+//              Mode - Pixel mode - lcd_pixel_mode_t value
+// Returns:     None
+void Lcd_WriteString (const char *String, lcd_font_t Font, lcd_pixel_mode_t Mode);
 
-        // Name:        _BufferPutByte
-        // Description: Puts a byte in the local buffer at current cursor position and advance cursor
-        // Arguments:   Byte - Byte to be put
-        // Returns:     None
-        void _BufferPutByte (uint8_t Byte);
+// Name:        Lcd_WriteInt
+// Description: Writes a int32_t number on the display starting at the current cursor position using 6x8 px chars
+// Arguments:   Number - Number to be sent
+//              Font - lcd_font_t value
+//              Mode - Pixel mode - lcd_pixel_mode_t value
+// Returns:     None
+void Lcd_WriteInt (int32_t Number, lcd_font_t Font, lcd_pixel_mode_t Mode);
 
-        // Name:        _AdjustByte
-        // Description: Adjusts byte according to desired pixel mode
-        // Arguments:   ByteToSend - Byte to be written in buffer
-        //              ByteInBuffer - Byte already in buffer
-        //              Mode - Pixel mode - lcd_pixel_mode_t value
-        // Returns:     Adjusted ByteToSend
-        uint8_t _AdjustByte(uint8_t ByteToSend, uint8_t ByteInBuffer, lcd_pixel_mode_t Mode);
+// Name:        Lcd_WriteFloat
+// Description: Writes a float number on the display starting at the current cursor position using 6x8 px chars
+// Arguments:   Number - Number to be sent
+//              DecPlaces - Number of decimal places to be shown
+//              Font - lcd_font_t value
+//              Mode - Pixel mode - lcd_pixel_mode_t value
+// Returns:     None
+void Lcd_WriteFloat (float Number, uint8_t DecPlaces, lcd_font_t Font, lcd_pixel_mode_t Mode);
 
-    // --------------------------------------------------------------------------------------------------- //
-    // Public members
-    // --------------------------------------------------------------------------------------------------- //
+// ------------------------------------------------------------------------------------------------------- //
 
-    public:
+// Name:        Lcd_WriteCharBig
+// Description: Writes a 10x16 char on the display starting at the current cursor position
+//              Only supports chars in the Lcd_FontBig charset
+// Arguments:   Char - Char to be sent
+//              Mode - Pixel mode - lcd_pixel_mode_t value
+// Returns:     None
+void Lcd_WriteCharBig (char Char, lcd_pixel_mode_t Mode);
 
-        // Name:        Lcd
-        // Description: Constructor of the class with no arguments
-        // Arguments:   None
-        // Returns:     None
-        Lcd();
+// Name:        Lcd_WriteIntBig
+// Description: Writes a int32_t number on the display starting at the current cursor position using 10x16 px chars
+// Arguments:   Number - Number to be sent
+//              Mode - Pixel mode - lcd_pixel_mode_t value
+// Returns:     None
+void Lcd_WriteIntBig (int32_t Number, lcd_pixel_mode_t Mode);
 
-        // Name:        Lcd
-        // Description: Constructor of the class with lcd_config_t struct as argument
-        // Arguments:   Config - lcd_config_t struct
-        // Returns:     None
-        Lcd(const lcd_config_t *Config);
+// Name:        Lcd_WriteFloatBig
+// Description: Writes a float number on the display starting at the current cursor position using 10x16 px chars
+//              Does not support Inf or NaN numbers
+// Arguments:   Number - Number to be sent
+//              DecPlaces - Number of decimal places to be shown
+//              Mode - Pixel mode - lcd_pixel_mode_t value
+// Returns:     None
+void Lcd_WriteFloatBig (float Number, uint8_t DecPlaces, lcd_pixel_mode_t Mode);
 
-        // Name:        Init
-        // Description: Starts the device peripherals, configures the LCD controller and clears display RAM
-        // Arguments:   Config - lcd_config_t struct
-        // Returns:     None
-        void Init (const lcd_config_t *Config);
+// ------------------------------------------------------------------------------------------------------- //
 
-        // Name:        Commit
-        // Description: Copy the local buffer to the LCD ram
-        // Arguments:   None
-        // Returns:     None
-        void Commit ();
+// Name:        Lcd_DrawBitmap
+// Description: Draws a bitmap on the display starting at the current cursor position
+// Arguments:   Bitmap - Pointer to the array
+//              Lenght - Lenght of the array (0 to PCD8544_MAXBYTES bytes)
+//              Mode - Pixel mode - lcd_pixel_mode_t value
+// Returns:     None
+void Lcd_DrawBitmap (const uint8_t *Bitmap, uint16_t Length, lcd_pixel_mode_t Mode);
 
-        // ----------------------------------------------------------------------------------------------- //
+// Name:        Lcd_DrawPixel
+// Description: Draws a single pixel on the display
+// Arguments:   X - Column of the pixel (0 to PCD8544_COLUMNS)
+//              Y - Row of the pixel (0 to PCD8544_ROWS)
+//              Mode - Pixel mode - lcd_pixel_mode_t value
+// Returns:     None
+void Lcd_DrawPixel (uint8_t X, uint8_t Y, lcd_pixel_mode_t Mode);
 
-        // Name:        ClearRange
-        // Description: Clears a range of columns and sets the cursor at the start of the range
-        // Arguments:   Bank - Starting bank of the range
-        //              Column - Starting column of the range
-        //              Length - Number of columns to be clear
-        // Returns:     None
-        void ClearRange (uint8_t Bank, uint8_t Column, uint16_t Length);
+// Name:        Lcd_DrawLine
+// Description: Draws a line between two points on the display using DDA algorithm
+// Arguments:   Xi, Yi - Absolute pixel coordinates for line origin
+//              Xf, Yf - Absolute pixel coordinates for line end
+//              Mode - Pixel mode - lcd_pixel_mode_t value
+// Returns:     None
+void Lcd_DrawLine (uint8_t Xi, uint8_t Yi, uint8_t Xf, uint8_t Yf, lcd_pixel_mode_t Mode);
 
-        // Name:        ClearBank
-        // Description: Clears a bank of the LCD and sets the cursor at the column 0 of this bank
-        // Arguments:   Bank - Bank to be clear
-        // Returns:     None
-        void ClearBank (uint8_t Bank);
+// Name:        Lcd_DrawRectangle
+// Description: Draws a rectangle between two diagonal points on the display
+// Arguments:   Xi, Yi - Absolute pixel coordinates for the first point
+//              Xf, Yf - Absolute pixel coordinates for end point
+//              Mode - Pixel mode - lcd_pixel_mode_t value
+// Returns:     None
+void Lcd_DrawRectangle (uint8_t Xi, uint8_t Yi, uint8_t Xf, uint8_t Yf, lcd_pixel_mode_t Px_Mode);
 
-        // Name:        ClearAll
-        // Description: Clears the LCD and sets the cursor at bank 0, column 0
-        // Arguments:   None
-        // Returns:     None
-        void ClearAll ();
+// Name:        Lcd_DrawFilledRectangle
+// Description: Draws a filled rectangle between two diagonal points on the display
+// Arguments:   Xi, Yi - Absolute pixel coordinates for the first point
+//              Xf, Yf - Absolute pixel coordinates for end point
+//              Mode - Pixel mode - lcd_pixel_mode_t value
+// Returns:     None
+void Lcd_DrawFilledRectangle (uint8_t Xi, uint8_t Yi, uint8_t Xf, uint8_t Yf, lcd_pixel_mode_t Px_Mode);
 
-        // ----------------------------------------------------------------------------------------------- //
-
-        // Name:        Goto
-        // Description: Sets the LCD cursor position (bank and column)
-        // Arguments:   Bank - Desired bank
-        //              Column - Desired column
-        // Returns:     None
-        void Goto (uint8_t Bank, uint8_t Column);
-
-        // Name:        GetBank
-        // Description: Gets the current bank of the LCD cursor
-        // Arguments:   None
-        // Returns:     Cursor bank
-        uint8_t GetBank ();
-
-        // Name:        GetColumn
-        // Description: Gets the current column of the LCD cursor
-        // Arguments:   None
-        // Returns:     Cursor column
-        uint8_t GetColumn ();
-
-        // ----------------------------------------------------------------------------------------------- //
-
-        // Name:        Powerdown
-        // Description: Sets or gets LCD powerdown mode
-        // Arguments:   Active - lcd_powerdown_t value. LCD_PD_GET returns current powerdown status
-        // Returns:     Current powerdown status - lcd_powerdown_t value
-        lcd_powerdown_t Powerdown (lcd_powerdown_t Active);
-
-        // Name:        Backlight
-        // Description: Sets or gets the backlight status
-        // Arguments:   Bkl - lcd_backlight_t value. LCD_BKL_GET returns backlight status
-        // Returns:     Backlight status - lcd_backlight_t value
-        lcd_backlight_t Backlight (lcd_backlight_t Bkl);
-
-        // Name:        Invert
-        // Description: Sets or gets inverted mode status
-        // Arguments:   Inv - lcd_inv_t value. LCD_INV_GET returns inverted status
-        // Returns:     Inverted mode status - lcd_inv_t value
-        lcd_inv_t Invert (lcd_inv_t Inv);
-
-        // ----------------------------------------------------------------------------------------------- //
-
-        // Name:        WriteChar
-        // Description: Writes a 6x8 px char on the display starting at the current cursor position
-        //              Only supports chars in the Lcd_FontBig charset
-        // Arguments:   Char - Char to be sent
-        //              Font - lcd_font_t value
-        //              Mode - Pixel mode - lcd_pixel_mode_t value
-        // Returns:     None
-        void WriteChar (char Char, lcd_font_t Font, lcd_pixel_mode_t Mode);
-
-        // Name:        WriteString
-        // Arguments:   String - Pointer to the string to be sent
-        //              Font - lcd_font_t value
-        //              Mode - Pixel mode - lcd_pixel_mode_t value
-        // Returns:     None
-        void WriteString (const char *String, lcd_font_t Font, lcd_pixel_mode_t Mode);
-
-        // Name:        WriteInt
-        // Description: Writes a int32_t number on the display starting at the current cursor position using 6x8 px chars
-        // Arguments:   Number - Number to be sent
-        //              Font - lcd_font_t value
-        //              Mode - Pixel mode - lcd_pixel_mode_t value
-        // Returns:     None
-        void WriteInt (int32_t Number, lcd_font_t Font, lcd_pixel_mode_t Mode);
-
-        // Name:        WriteFloat
-        // Description: Writes a float number on the display starting at the current cursor position using 6x8 px chars
-        // Arguments:   Number - Number to be sent
-        //              DecPlaces - Number of decimal places to be shown
-        //              Font - lcd_font_t value
-        //              Mode - Pixel mode - lcd_pixel_mode_t value
-        // Returns:     None
-        void WriteFloat (float Number, uint8_t DecPlaces, lcd_font_t Font, lcd_pixel_mode_t Mode);
-
-        // ----------------------------------------------------------------------------------------------- //
-
-        // Name:        WriteCharBig
-        // Description: Writes a 10x16 char on the display starting at the current cursor position
-        //              Only supports chars in the Lcd_FontBig charset
-        // Arguments:   Char - Char to be sent
-        //              Mode - Pixel mode - lcd_pixel_mode_t value
-        // Returns:     None
-        void WriteCharBig (char Char, lcd_pixel_mode_t Mode);
-
-        // Name:        WriteIntBig
-        // Description: Writes a int32_t number on the display starting at the current cursor position using 10x16 px chars
-        // Arguments:   Number - Number to be sent
-        //              Mode - Pixel mode - lcd_pixel_mode_t value
-        // Returns:     None
-        void WriteIntBig (int32_t Number, lcd_pixel_mode_t Mode);
-
-        // Name:        WriteFloatBig
-        // Description: Writes a float number on the display starting at the current cursor position using 10x16 px chars
-        //              Does not support Inf or NaN numbers
-        // Arguments:   Number - Number to be sent
-        //              DecPlaces - Number of decimal places to be shown
-        //              Mode - Pixel mode - lcd_pixel_mode_t value
-        // Returns:     None
-        void WriteFloatBig (float Number, uint8_t DecPlaces, lcd_pixel_mode_t Mode);
-
-        // ----------------------------------------------------------------------------------------------- //
-
-        // Name:        DrawBitmap
-        // Description: Draws a bitmap on the display starting at the current cursor position
-        // Arguments:   Bitmap - Pointer to the array
-        //              Lenght - Lenght of the array (0 to PCD8544_MAXBYTES bytes)
-        //              Mode - Pixel mode - lcd_pixel_mode_t value
-        // Returns:     None
-        void DrawBitmap (const uint8_t *Bitmap, uint16_t Length, lcd_pixel_mode_t Mode);
-
-        // Name:        DrawPixel
-        // Description: Draws a single pixel on the display
-        // Arguments:   X - Column of the pixel (0 to PCD8544_COLUMNS)
-        //              Y - Row of the pixel (0 to PCD8544_ROWS)
-        //              Mode - Pixel mode - lcd_pixel_mode_t value
-        // Returns:     None
-        void DrawPixel (uint8_t X, uint8_t Y, lcd_pixel_mode_t Mode);
-
-        // Name:        DrawLine
-        // Description: Draws a line between two points on the display using DDA algorithm
-        // Arguments:   Xi, Yi - Absolute pixel coordinates for line origin
-        //              Xf, Yf - Absolute pixel coordinates for line end
-        //              Mode - Pixel mode - lcd_pixel_mode_t value
-        // Returns:     None
-        void DrawLine (uint8_t Xi, uint8_t Yi, uint8_t Xf, uint8_t Yf, lcd_pixel_mode_t Mode);
-
-        // Name:        DrawRectangle
-        // Description: Draws a rectangle between two diagonal points on the display
-        // Arguments:   Xi, Yi - Absolute pixel coordinates for the first point
-        //              Xf, Yf - Absolute pixel coordinates for end point
-        //              Mode - Pixel mode - lcd_pixel_mode_t value
-        // Returns:     None
-        void DrawRectangle (uint8_t Xi, uint8_t Yi, uint8_t Xf, uint8_t Yf, lcd_pixel_mode_t Px_Mode);
-
-        // Name:        DrawFilledRectangle
-        // Description: Draws a filled rectangle between two diagonal points on the display
-        // Arguments:   Xi, Yi - Absolute pixel coordinates for the first point
-        //              Xf, Yf - Absolute pixel coordinates for end point
-        //              Mode - Pixel mode - lcd_pixel_mode_t value
-        // Returns:     None
-        void DrawFilledRectangle (uint8_t Xi, uint8_t Yi, uint8_t Xf, uint8_t Yf, lcd_pixel_mode_t Px_Mode);
-
-        // Name:        DrawCircle
-        // Description: Draw a circle using Bresenham algorithm
-        // Arguments:   Xc, Yc - Absolute pixel coordinates for the center of the circle
-        //              Radius - Radius of the circle in pixels
-        //              Px_Mode - Pixel mode - Can be either LCD_PIXEL_OFF, LCD_PIXEL_ON or LCD_PIXEL_XOR
-        // Returns:     None
-        void DrawCircle (uint8_t Xc, uint8_t Yc, uint8_t Radius, lcd_pixel_mode_t Mode);
-};
+// Name:        Lcd_DrawCircle
+// Description: Draw a circle using Bresenham algorithm
+// Arguments:   Xc, Yc - Absolute pixel coordinates for the center of the circle
+//              Radius - Radius of the circle in pixels
+//              Px_Mode - Pixel mode - Can be either LCD_PIXEL_OFF, LCD_PIXEL_ON or LCD_PIXEL_XOR
+// Returns:     None
+void Lcd_DrawCircle (uint8_t Xc, uint8_t Yc, uint8_t Radius, lcd_pixel_mode_t Mode);
 
 // ------------------------------------------------------------------------------------------------------- //
 // PCD8544 LCD controller fonts - Font 0 - Regular characters - 5x8 px

@@ -104,7 +104,7 @@ Button::Button()
 // Arguments:   Config - button_config_t struct
 // Returns:     None
 
-Button::Button(button_config_t *Config) : Button()
+Button::Button(const button_config_t *Config) : Button()
 {
     Init(Config);
 }
@@ -116,7 +116,7 @@ Button::Button(button_config_t *Config) : Button()
 // Arguments:   Config - button_config_t struct
 // Returns:     None
 
-void Button::Init(button_config_t *Config)
+void Button::Init(const button_config_t *Config)
 {
     // Copy config to a private variable
     _Config = *Config;

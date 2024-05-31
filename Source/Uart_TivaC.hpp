@@ -121,13 +121,13 @@ class Uart
         // Description: Constructor of the class with uart_config_t struct as argument
         // Arguments:   Config - uart_config_t struct
         // Returns:     None
-        Uart(uart_config_t *Config);
+        Uart(const uart_config_t *Config);
 
         // Name:        Init
         // Description: Starts device peripherals
         // Arguments:   Config - uart_config_t struct
         // Returns:     None
-        void Init(uart_config_t *Config);
+        void Init(const uart_config_t *Config);
 
         // Name:        SendString
         // Description: Sends a string to the UART

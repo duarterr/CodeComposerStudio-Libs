@@ -248,13 +248,13 @@ class Rgb
         // Description: Constructor of the class with rgb_config_t struct as argument
         // Arguments:   Config - rgb_config_t struct
         // Returns:     None
-        Rgb(rgb_config_t *Config);
+        Rgb(const rgb_config_t *Config);
 
         // Name:        Init
         // Description: Starts device peripherals and application logic
         // Arguments:   Config - rgb_config_t struct
         // Returns:     None
-        void Init(rgb_config_t *Config);
+        void Init(const rgb_config_t *Config);
 
         // Name:        SetColor
         // Description: Sets the RGB LED color
@@ -268,6 +268,12 @@ class Rgb
         // Arguments:   Buffer - Pointer rgb_color_t structure where values will be saved (0x00 to 0xFF values)
         // Returns:     None
         void GetColor(rgb_color_t *Buffer);
+
+        // Name:        IsChangingColor
+        // Description: Checks if LED is in the process of changing colors
+        // Arguments:   None
+        // Returns:     True if colors are changing. False otherwise
+        bool IsChangingColor ();
 };
 
 // ------------------------------------------------------------------------------------------------------- //

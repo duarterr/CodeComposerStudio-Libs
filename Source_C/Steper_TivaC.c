@@ -47,13 +47,14 @@
 // ------------------------------------------------------------------------------------------------------- //
 
 // Stepper defines and macros
-#include "Stepper_TivaC.hpp"
+#include "Stepper_TivaC.h"
 
 // Standard libraries
 #include <stdint.h>
+#include <stdbool.h>
 
 // Auxiliary functions
-#include <Aux_Functions.hpp>
+#include <Aux_Functions.h>
 
 // TivaC device defines and macros
 #include "driverlib/gpio.h"
@@ -62,14 +63,94 @@
 #include "driverlib/sysctl.h"
 #include "driverlib/timer.h"
 
-#include "inc/hw_ints.h"
-
 // ------------------------------------------------------------------------------------------------------- //
-// Initialize the static array and counter
+// "Private" variables
 // ------------------------------------------------------------------------------------------------------- //
 
-Stepper* Stepper::_Instance[MAX_STEPPERS] = {nullptr};
-uint8_t Stepper::_InstanceCounter = 0;
+// Velocity delta to keep constant acceleration
+static float _DeltaVel = 0;
+
+// Stepper configuration object
+static stepper_config_t _Config;
+
+// Stepper-related variables
+static stepper_status_t _Status = stepper_status_t_default;
+
+// ------------------------------------------------------------------------------------------------------- //
+// Functions prototypes - "Private" functions
+// ------------------------------------------------------------------------------------------------------- //
+
+// Name:        _InitHardware
+// Description: Starts device peripherals
+// Arguments:   None
+// Returns:     None
+static void _InitHardware(void);
+
+// Name:        _IsrTimerHandler
+// Description: Timer interrupt service routine
+// Arguments:   None
+// Returns:     None
+static void _IsrTimerHandler (void);
+
+// Name:        _IsrLimHandler
+// Description: PWM interrupt service routine
+// Arguments:   None
+// Returns:     None
+static void _IsrLimHandler (void);
+
+// Name:        _GetPwmClock
+// Description: Gets PWM module clock
+// Arguments:   None
+// Returns:     Clock in Hz
+static uint32_t _GetPwmClock(void);
+
+// Name:        _SetDirection
+// Description: Sets stepper direction pin
+// Arguments:   NewDirection - True to go forward, false otherwise
+// Returns:     None
+static void _SetDirection (bool NewDirection);
+
+// Name:        _SetEnable
+// Description: Sets stepper enable pin
+// Arguments:   NewEnable - True to enable stepper, false otherwise
+// Returns:     None
+static void _SetEnable (bool NewEnable);
+
+// Name:        _StartPwm
+// Description: Starts stepper PWM generator
+// Arguments:   None
+// Returns:     None
+static void _StartPwm (void);
+
+// Name:        _StopPwm
+// Description: Stops stepper PWM generator
+// Arguments:   None
+// Returns:     None
+static void _StopPwm (void);
+
+// Name:        _SetPwmFreq
+// Description: Updates the frequency and duty cycle of the PWM generator
+// Arguments:   NewFreq - Frequency to be set (Hz)
+// Returns:     None
+static void _SetPwmFreq (uint32_t NewFreq);
+
+// Name:        _SetVel
+// Description: Updates the stepper velocity
+// Arguments:   NewVel - New velocity (m/s)
+// Returns:     None
+static void _SetVel (float NewVel);
+
+// Name:        _CanMove
+// Description: Checks if movement is possible in a given direction
+// Arguments:   Direction - True to forward direction, false otherwise
+// Returns:     None
+static bool _CanMove(bool Direction);
+
+// Name:        _CalculateVel
+// Description: Defines stepper velocity based on target values and current state
+// Arguments:   None
+// Returns:     None
+static void _CalculateVel (void);
 
 // ------------------------------------------------------------------------------------------------------- //
 // Functions definitions
@@ -80,7 +161,7 @@ uint8_t Stepper::_InstanceCounter = 0;
 // Arguments:   None
 // Returns:     None
 
-void Stepper::_InitHardware()
+static void _InitHardware(void)
 {
     // Enable peripheral clocks
     SysCtlPeripheralEnable(_Config.Pwm.Periph);
@@ -131,7 +212,7 @@ void Stepper::_InitHardware()
     TimerLoadSet(_Config.Timer.Base, TIMER_A, timerPeriod);
 
     // Register interrupt handler
-    TimerIntRegister (_Config.Timer.Base, TIMER_A, _IsrTimerStaticCallback);
+    TimerIntRegister (_Config.Timer.Base, TIMER_A, _IsrTimerHandler);
 
     // Enable interrupt on timer timeout
     TimerIntEnable(_Config.Timer.Base, TIMER_TIMA_TIMEOUT);
@@ -149,8 +230,8 @@ void Stepper::_InitHardware()
     GPIOIntTypeSet (_Config.LimEnd.Base, _Config.LimEnd.Pin, GPIO_RISING_EDGE);
 
     // Register interrupt handler
-    GPIOIntRegister(_Config.LimStart.Base, _IsrLimStaticCallback);
-    GPIOIntRegister(_Config.LimEnd.Base, _IsrLimStaticCallback);
+    GPIOIntRegister(_Config.LimStart.Base, _IsrLimHandler);
+    GPIOIntRegister(_Config.LimEnd.Base, _IsrLimHandler);
 
     // Enable interrupt on limit switches
     GPIOIntEnable (_Config.LimStart.Base, _Config.LimStart.Pin);
@@ -159,36 +240,18 @@ void Stepper::_InitHardware()
 
 // ------------------------------------------------------------------------------------------------------- //
 
-// Name:        _IsrLimStaticCallback
-// Description: Static callback function for handling limit switches interrupts
-// Arguments:   None
-// Returns:     None
-
-void Stepper::_IsrLimStaticCallback()
-{
-    // Iterate over all instances to find the one matching the interrupt
-    for (uint8_t Index = 0; Index < _InstanceCounter; Index++)
-    {
-        // Check if this instance triggered the interrupt and call the instance-specific handler
-        if ((_Instance[Index] != nullptr) && ((GPIOIntStatus(_Instance[Index]->_Config.LimStart.Base, true) != 0) || (GPIOIntStatus(_Instance[Index]->_Config.LimEnd.Base, true) != 0)))
-            _Instance[Index]->_IsrLimHandler();
-    }
-}
-
-// ------------------------------------------------------------------------------------------------------- //
-
 // Name:        _IsrLimHandler
-// Description: Limit switches interrupt service routine
+// Description: PWM interrupt service routine
 // Arguments:   None
 // Returns:     None
 
-void Stepper::_IsrLimHandler ()
+static void _IsrLimHandler (void)
 {
     if (GPIOIntStatus (_Config.LimStart.Base, true) == _Config.LimStart.Pin)
     {
         // Is moving backwards. Not possible  anymore
         if ((_Status.Enabled) && (_Status.Dir == 0))
-            Stop();
+            Stepper_Stop();
 
         // Clear the asserted interrupts
         GPIOIntClear (_Config.LimStart.Base, _Config.LimStart.Pin);
@@ -198,28 +261,10 @@ void Stepper::_IsrLimHandler ()
     {
         // Is moving forwards. Not possible  anymore
         if ((_Status.Enabled) && (_Status.Dir == 1))
-            Stop();
+            Stepper_Stop();
 
         // Clear the asserted interrupts
         GPIOIntClear (_Config.LimEnd.Base, _Config.LimEnd.Pin);
-    }
-}
-
-// ------------------------------------------------------------------------------------------------------- //
-
-// Name:        _IsrTimerStaticCallback
-// Description: Static callback function for handling timer interrupts
-// Arguments:   None
-// Returns:     None
-
-void Stepper::_IsrTimerStaticCallback()
-{
-    // Iterate over all instances to find the one matching the interrupt
-    for (uint8_t Index = 0; Index < _InstanceCounter; Index++)
-    {
-        // Check if this instance triggered the interrupt and call the instance-specific handler
-        if ((_Instance[Index] != nullptr) && (TimerIntStatus(_Instance[Index]->_Config.Timer.Base, true) != 0))
-            _Instance[Index]->_IsrTimerHandler();
     }
 }
 
@@ -230,7 +275,7 @@ void Stepper::_IsrTimerStaticCallback()
 // Arguments:   None
 // Returns:     None
 
-void Stepper::_IsrTimerHandler ()
+static void _IsrTimerHandler (void)
 {
     // Clear interrupt flag
     TimerIntClear (_Config.Timer.Base, TIMER_TIMA_TIMEOUT);
@@ -246,7 +291,7 @@ void Stepper::_IsrTimerHandler ()
 // Arguments:   None
 // Returns:     Clock in Hz
 
-uint32_t Stepper::_GetPwmClock()
+static uint32_t _GetPwmClock(void)
 {
     uint8_t ClockShifts = 0;
 
@@ -294,7 +339,7 @@ uint32_t Stepper::_GetPwmClock()
 // Arguments:   NewDirection - True to go forward, false otherwise
 // Returns:     None
 
-void Stepper::_SetDirection (bool NewDirection)
+static void _SetDirection (bool NewDirection)
 {
     _Status.Dir = NewDirection;
     GPIOPinWrite (_Config.Dir.Base, _Config.Dir.Pin, NewDirection * 0xFF);
@@ -307,7 +352,7 @@ void Stepper::_SetDirection (bool NewDirection)
 // Arguments:   NewEnable - True to enable stepper, false otherwise
 // Returns:     None
 
-void Stepper::_SetEnable (bool NewEnable)
+static void _SetEnable (bool NewEnable)
 {
     _Status.Enabled = NewEnable;
     GPIOPinWrite (_Config.En.Base, _Config.En.Pin, !NewEnable * 0xFF);
@@ -320,7 +365,7 @@ void Stepper::_SetEnable (bool NewEnable)
 // Arguments:   None
 // Returns:     None
 
-void Stepper::_StartPwm ()
+static void _StartPwm (void)
 {
     // Turn on the output pin
     PWMOutputState (_Config.Pwm.Base, _Config.Pwm.OutBit, true);
@@ -336,7 +381,7 @@ void Stepper::_StartPwm ()
 // Arguments:   None
 // Returns:     None
 
-void Stepper::_StopPwm ()
+static void _StopPwm (void)
 {
     // Stop PWM
     PWMGenDisable (_Config.Pwm.Base, _Config.Pwm.Gen);
@@ -358,12 +403,13 @@ void Stepper::_StopPwm ()
 // Arguments:   NewFreq - Frequency to be set (Hz)
 // Returns:     None
 
-void Stepper::_SetPwmFreq (uint32_t NewFreq)
+static void _SetPwmFreq (uint32_t NewFreq)
 {
     bool ClockChanged = false;
 
     // Check if PWM clock needs adjustment
-    if ((NewFreq > 3000) && (_Config.Params.PwmClock != SysCtlClockGet())) {
+    if ((NewFreq > 3000) && (_Config.Params.PwmClock != SysCtlClockGet()))
+    {
         // Desired PWM frequency is high enough for high speed PWM clock
         SysCtlPWMClockSet(SYSCTL_PWMDIV_1);
         ClockChanged = true;
@@ -411,12 +457,51 @@ void Stepper::_SetPwmFreq (uint32_t NewFreq)
 
 // ------------------------------------------------------------------------------------------------------- //
 
+// Name:        _SetVel
+// Description: Updates the stepper velocity
+// Arguments:   NewVel - New velocity (m/s)
+// Returns:     None
+
+static void _SetVel (float NewVel)
+{
+    if (NewVel == 0)
+    {
+        Stepper_Stop();
+        return;
+    }
+
+    // Set value
+    if ((Aux_FastFabs(NewVel - _Status.TargetVel) * _Config.Params.Kv) < 1)
+        _Status.CurrentVel = _Status.TargetVel;
+    else
+        _Status.CurrentVel = NewVel;
+
+    // Change PWM frequency
+    _SetPwmFreq (_Config.Params.Kv * Aux_FastFabs(NewVel));
+}
+
+// ------------------------------------------------------------------------------------------------------- //
+
+// Name:        _CanMove
+// Description: Checks if movement is possible in a given direction
+// Arguments:   Direction - True to forward direction, false otherwise
+// Returns:     None
+
+static bool _CanMove(bool Direction)
+{
+    // One of the limit switches is pressed and stepper is trying to move in the same direction
+    return !((GPIOPinRead(_Config.LimStart.Base, _Config.LimStart.Pin) && (Direction == 0))
+            || (GPIOPinRead(_Config.LimEnd.Base, _Config.LimEnd.Pin) && (Direction == 1)));
+}
+
+// ------------------------------------------------------------------------------------------------------- //
+
 // Name:        _CalculateVel
 // Description: Defines stepper velocity based on target values and current state
 // Arguments:   None
 // Returns:     None
 
-void Stepper::_CalculateVel ()
+static void _CalculateVel (void)
 {
     // Target reached
     if (_Status.CurrentVel == _Status.TargetVel)
@@ -441,7 +526,7 @@ void Stepper::_CalculateVel ()
         // Calculate the new velocity
         if (!_Status.Enabled)
             NewVel = (_Status.TargetVel < 0 ? -_Config.Params.VelMin : _Config.Params.VelMin);
-        else if (Aux::FastFabs(_Status.CurrentVel - _Status.TargetVel) < _DeltaVel)
+        else if (Aux_FastFabs(_Status.CurrentVel - _Status.TargetVel) < _DeltaVel)
             NewVel = _Status.TargetVel;
         else if (_Status.CurrentVel < _Status.TargetVel)
             NewVel = _Status.CurrentVel + _DeltaVel;
@@ -459,77 +544,12 @@ void Stepper::_CalculateVel ()
 
 // ------------------------------------------------------------------------------------------------------- //
 
-// Name:        _SetVel
-// Description: Updates the stepper velocity
-// Arguments:   NewVel - New velocity (m/s)
-// Returns:     None
-
-void Stepper::_SetVel (float NewVel)
-{
-    if (NewVel == 0)
-    {
-        Stop();
-        return;
-    }
-
-    // Set value
-    if ((Aux::FastFabs(NewVel - _Status.TargetVel) * _Config.Params.Kv) < 1)
-        _Status.CurrentVel = _Status.TargetVel;
-    else
-        _Status.CurrentVel = NewVel;
-
-    // Change PWM frequency
-    _SetPwmFreq (_Config.Params.Kv * Aux::FastFabs(NewVel));
-}
-
-// ------------------------------------------------------------------------------------------------------- //
-
-// Name:        _CanMove
-// Description: Checks if movement is possible in a given direction
-// Arguments:   Direction - True to forward direction, false otherwise
-// Returns:     None
-
-bool Stepper::_CanMove(bool Direction)
-{
-    // One of the limit switches is pressed and stepper is trying to move in the same direction
-    return !((GPIOPinRead(_Config.LimStart.Base, _Config.LimStart.Pin) && (Direction == 0))
-            || (GPIOPinRead(_Config.LimEnd.Base, _Config.LimEnd.Pin) && (Direction == 1)));
-}
-
-// ------------------------------------------------------------------------------------------------------- //
-
-// Name:        Stepper
-// Description: Constructor of the class with no arguments
-// Arguments:   None
-// Returns:     None
-
-Stepper::Stepper()
-{
-    // Register the instance in the array
-    if (_InstanceCounter < MAX_STEPPERS)
-        _Instance[_InstanceCounter++] = this;
-}
-
-// ------------------------------------------------------------------------------------------------------- //
-
-// Name:        Stepper
-// Description: Constructor of the class with stepper_config_t struct as argument
-// Arguments:   Config - stepper_config_t struct
-// Returns:     None
-
-Stepper::Stepper(const stepper_config_t *Config) : Stepper()
-{
-    Init(Config);
-}
-
-// ------------------------------------------------------------------------------------------------------- //
-
 // Name:        Init
 // Description: Starts device peripherals and application logic
 // Arguments:   Config - rgb_config_t struct
 // Returns:     None
 
-void Stepper::Init(const stepper_config_t *Config)
+void Stepper_Init(const stepper_config_t *Config)
 {
     // Copy config to a private variable
     _Config = *Config;
@@ -545,9 +565,9 @@ void Stepper::Init(const stepper_config_t *Config)
 // Arguments:   Buffer - stepper_status_t struct to receive the data
 // Returns:     None
 
-void Stepper::GetStatus(stepper_status_t *Buffer)
+void Stepper_GetStatus(stepper_status_t *Buffer)
 {
-    if (Buffer != nullptr)
+    if (Buffer != 0)
         *Buffer = _Status;
 }
 
@@ -558,7 +578,7 @@ void Stepper::GetStatus(stepper_status_t *Buffer)
 // Arguments:   None
 // Returns:     bool - Current enabled status
 
-bool Stepper::GetEnabled() const
+bool Stepper_GetEnabled(void)
 {
     return _Status.Enabled;
 }
@@ -570,7 +590,7 @@ bool Stepper::GetEnabled() const
 // Arguments:   None
 // Returns:     bool - Current direction (1 = forward, 0 = backward)
 
-bool Stepper::GetDir() const
+bool Stepper_GetDir(void)
 {
     return _Status.Dir;
 }
@@ -582,7 +602,7 @@ bool Stepper::GetDir() const
 // Arguments:   None
 // Returns:     float - Target velocity (m/s)
 
-float Stepper::GetTargetVel() const
+float Stepper_GetTargetVel(void)
 {
     return _Status.TargetVel;
 }
@@ -594,7 +614,7 @@ float Stepper::GetTargetVel() const
 // Arguments:   None
 // Returns:     float - Current velocity (m/s)
 
-float Stepper::GetCurrentVel() const
+float Stepper_GetCurrentVel(void)
 {
     return _Status.CurrentVel;
 }
@@ -606,7 +626,7 @@ float Stepper::GetCurrentVel() const
 // Arguments:   None
 // Returns:     float - Current acceleration (m/s^2)
 
-float Stepper::GetCurrentAcc() const
+float Stepper_GetCurrentAcc(void)
 {
     return _Status.CurrentAcc;
 }
@@ -618,7 +638,7 @@ float Stepper::GetCurrentAcc() const
 // Arguments:   None
 // Returns:     uint32_t - Current PWM frequency (Hz)
 
-uint32_t Stepper::GetPwmFrequency() const
+uint32_t Stepper_GetPwmFrequency(void)
 {
     return _Status.PwmFrequency;
 }
@@ -630,7 +650,7 @@ uint32_t Stepper::GetPwmFrequency() const
 // Arguments:   None
 // Returns:     None
 
-void Stepper::Stop ()
+void Stepper_Stop (void)
 {
     // Reset enable pin
     _SetEnable(false);
@@ -652,7 +672,7 @@ void Stepper::Stop ()
 //              Acceleration - Acceleration value in m/s^2 (-1 to instant change in velocity)
 // Returns:     True is movement is possible. False otherwise
 
-bool Stepper::Move (float FinalVelocity, float Acceleration)
+bool Stepper_Move (float FinalVelocity, float Acceleration)
 {
     // Get velocity sign (1 or -1)
     int8_t VelocitySign = FinalVelocity > 0 ? 1 : -1;
@@ -693,7 +713,7 @@ bool Stepper::Move (float FinalVelocity, float Acceleration)
 
         // Cannot move. Reset variables
         else
-            Stop();
+            Stepper_Stop();
     }
 
     // Start velocity control timer
@@ -711,7 +731,7 @@ bool Stepper::Move (float FinalVelocity, float Acceleration)
 // Arguments:   EncoderValue - The current value of the encoder
 // Returns:     bool - Returns true if the motor is stalled, otherwise false
 
-bool Stepper::CheckForStall (uint32_t EncoderValue)
+bool Stepper_CheckForStall (uint32_t EncoderValue)
 {
     bool Stall = false;
 

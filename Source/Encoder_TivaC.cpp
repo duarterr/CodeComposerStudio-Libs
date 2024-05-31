@@ -135,7 +135,7 @@ Encoder::Encoder()
 // Arguments:   Config - encoder_config_t struct
 // Returns:     None
 
-Encoder::Encoder(encoder_config_t *Config) : Encoder()
+Encoder::Encoder(const encoder_config_t *Config) : Encoder()
 {
     Init(Config);
 }
@@ -147,7 +147,7 @@ Encoder::Encoder(encoder_config_t *Config) : Encoder()
 // Arguments:   Config - encoder_config_t struct
 // Returns:     None
 
-void Encoder::Init(encoder_config_t *Config)
+void Encoder::Init(const encoder_config_t *Config)
 {
     // Copy config to a private variable
     _Config = *Config;

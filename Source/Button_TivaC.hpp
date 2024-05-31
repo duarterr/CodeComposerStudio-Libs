@@ -159,13 +159,13 @@ class Button
         // Description: Constructor of the class with button_config_t struct as argument
         // Arguments:   Config - button_config_t struct
         // Returns:     None
-        Button(button_config_t *Config);
+        Button(const button_config_t *Config);
 
         // Name:        Init
         // Description: Starts device peripherals and application state machine
         // Arguments:   Config - button_config_t struct
         // Returns:     None
-        void Init(button_config_t *Config);
+        void Init(const button_config_t *Config);
 
         // Name:        ScanEvent
         // Description: Scans the button state and detect events

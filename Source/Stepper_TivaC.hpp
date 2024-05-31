@@ -61,7 +61,7 @@ extern "C"
 // Definitions
 // ------------------------------------------------------------------------------------------------------- //
 
-#define MAX_STEPPERS 1              // Maximum number of encoder instances
+#define MAX_STEPPERS 1              // Maximum number of stepper instances
 
 // ------------------------------------------------------------------------------------------------------- //
 // Structs
@@ -180,7 +180,7 @@ class Stepper
         static void _IsrLimStaticCallback();
 
         // Name:        _IsrLimHandler
-        // Description: PWM interrupt service routine
+        // Description: Limit switches interrupt service routine
         // Arguments:   None
         // Returns:     None
         void _IsrLimHandler ();
@@ -267,13 +267,13 @@ class Stepper
         // Description: Constructor of the class with stepper_config_t struct as argument
         // Arguments:   Config - stepper_config_t struct
         // Returns:     None
-        Stepper(stepper_config_t *Config);
+        Stepper(const stepper_config_t *Config);
 
         // Name:        Init
         // Description: Starts device peripherals and application logic
         // Arguments:   Config - stepper_config_t struct
         // Returns:     None
-        void Init(stepper_config_t *Config);
+        void Init(const stepper_config_t *Config);
 
         // Name:        GetStatus
         // Description: Gets current status of stepper motor

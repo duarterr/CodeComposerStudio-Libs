@@ -142,7 +142,7 @@ Uart::Uart()
 // Arguments:   Config - uart_config_t struct
 // Returns:     None
 
-Uart::Uart(uart_config_t *Config) : Uart()
+Uart::Uart(const uart_config_t *Config) : Uart()
 {
     Init(Config);
 }
@@ -154,7 +154,7 @@ Uart::Uart(uart_config_t *Config) : Uart()
 // Arguments:   Config - uart_config_t struct
 // Returns:     None
 
-void Uart::Init(uart_config_t *Config)
+void Uart::Init(const uart_config_t *Config)
 {
     // Copy config to a private variable
     _Config = *Config;
