@@ -15,6 +15,9 @@
 // Button defines and macros
 #include "Encoder_TivaC.hpp"
 
+// Auxiliary functions
+#include <Aux_Functions.hpp>
+
 // Standard libraries
 #include <stdint.h>
 
@@ -61,7 +64,7 @@ void Encoder::_InitHardware()
     QEIConfigure(_Config.Hardware.BaseQEI, QEI_CONFIG_CAPTURE_A_B | QEI_CONFIG_QUADRATURE | _Config.Hardware.Config, _Config.Params.PPR);
 
     // Configure velocity calculation
-    QEIVelocityConfigure(_Config.Hardware.BaseQEI, QEI_VELDIV_16, (SysCtlClockGet() >> 4) / _Config.Params.ScanFreq);
+    QEIVelocityConfigure(_Config.Hardware.BaseQEI, QEI_VELDIV_1, SysCtlClockGet() / _Config.Params.ScanFreq);
     QEIVelocityEnable(_Config.Hardware.BaseQEI);
 
     // Register interrupt handler for velocity timer expiration
@@ -69,6 +72,10 @@ void Encoder::_InitHardware()
 
     // Enable QEI interrupt
     QEIIntEnable(_Config.Hardware.BaseQEI, QEI_INTTIMER);
+
+    // Configure QEI filter
+//    QEIFilterConfigure(_Config.Hardware.BaseQEI, QEI_FILTCNT_3);
+//    QEIFilterEnable(_Config.Hardware.BaseQEI);
 
     // Enable the QEI
     QEIEnable(_Config.Hardware.BaseQEI);

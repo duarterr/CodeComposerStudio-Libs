@@ -54,12 +54,12 @@
 // LCD5110 defines and macros
 #include "Lcd_TivaC.hpp"
 
+// Auxiliary functions
+#include <Aux_Functions.hpp>
+
 // Standard libraries
 #include <stdint.h>
 #include "stdlib.h"
-
-// Auxiliary functions
-#include <Aux_Functions.hpp>
 
 // TivaC device defines and macros
 #include "driverlib/gpio.h"

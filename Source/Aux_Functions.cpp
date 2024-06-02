@@ -162,7 +162,7 @@ uint8_t Aux::F2Str(float Number, char* String, uint8_t DecPlaces)
     // Variables
     uint8_t Length = 0;
 
-    // Check if number is infinity (positive or negative)
+    // Check if number is infinity (ArrayYitive or negative)
     if(isinf(Number))
     {
         Aux::Strcpy(String, "Inf");
@@ -236,13 +236,55 @@ float Aux::FastFabs(float x)
 
 // ------------------------------------------------------------------------------------------------------- //
 
-// Name:        FastFabs
-// Description: Computes the absolute value of a double number using a ternary operator for fast execution
-// Arguments:   x - The double number for which the absolute value is to be computed
-// Returns:     The absolute value of the input number
+// Name:        Mean
+// Description: Computes the mean (average) of an array of unsigned 32-bit integers
+// Arguments:   Array - The array of unsigned 32-bit integers
+//              Size  - The number of elements in the array
+// Returns:     The mean (average) value of the array elements as a float
 
-double Aux::FastFabs(double x) {
-    return x < 0.0 ? -x : x;
+float Aux::Mean(uint32_t Array[], int Size)
+{
+    float Sum = 0.0;
+
+    for (int Idx = 0; Idx < Size; Idx++)
+        Sum += Array[Idx];
+
+    return Sum / Size;
+}
+
+// ------------------------------------------------------------------------------------------------------- //
+
+// Name:        LinearInterpolation
+// Description: Calculates the slope and offset of a linear interpolation  for a given set of X-Y data
+//              using the least squares method
+// Arguments:   ArrayX - Array of unsigned 32-bit integers representing the X points
+//              ArrayY - Array of unsigned 32-bit integers representing the Y points
+//              Size - The number of elements in the arrays
+//              Slope - Pointer to a float where the calculated slope will be stored
+//              Offset  - Pointer to a float where the calculated offset will be stored
+// Returns:     None (the results are stored in the provided Slope and Offset pointers)
+
+void Aux::LinearInterpolation(uint32_t ArrayX[], uint32_t ArrayY[], uint8_t Size, float *Slope, float *Offset)
+{
+    // Calculate the means of ArrayX and ArrayY
+    float MeanX = Aux::Mean(ArrayX, Size);
+    float MeanY = Aux::Mean(ArrayY, Size);
+
+    float Numerator = 0.0;
+    float Denominator = 0.0;
+
+    // Calculate the numerator and denominator for the slope
+    for (int Idx = 0; Idx < Size; Idx++)
+    {
+        Numerator += (ArrayX[Idx] - MeanX) * (ArrayY[Idx] - MeanY);
+        Denominator += (ArrayX[Idx] - MeanX) * (ArrayX[Idx] - MeanX);
+    }
+
+    // Calculate slope (m)
+    *Slope = Numerator / Denominator;
+
+    // Calculate offset (b)
+    *Offset = MeanY - (*Slope * MeanX);
 }
 
 // ------------------------------------------------------------------------------------------------------- //

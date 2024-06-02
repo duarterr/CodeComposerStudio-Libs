@@ -720,7 +720,7 @@ bool Stepper::CheckForStall (uint32_t EncoderValue)
         static uint32_t LastEncoderValue = 0;
 
         // Cart moved too little and stepper has PWM
-        if ((LastEncoderValue == EncoderValue) && (_Status.CurrentVel != 0))
+        if ((LastEncoderValue == EncoderValue) && (_Status.CurrentVel == _Status.TargetVel))
             Stall = true;
 
         LastEncoderValue = EncoderValue;

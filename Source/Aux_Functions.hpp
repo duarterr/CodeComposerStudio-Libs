@@ -96,11 +96,23 @@ class Aux
         // Returns:     The absolute value of the input number
         static float FastFabs(float x);
 
-        // Name:        FastFabs
-        // Description: Computes the absolute value of a double number using a ternary operator for fast execution
-        // Arguments:   x - The double number for which the absolute value is to be computed
-        // Returns:     The absolute value of the input number
-        static double FastFabs(double x);
+        // Name:        Mean
+        // Description: Computes the mean (average) of an array of unsigned 32-bit integers
+        // Arguments:   Array - The array of unsigned 32-bit integers
+        //              Size  - The number of elements in the array
+        // Returns:     The mean (average) value of the array elements as a float
+        static float Mean(uint32_t Array[], int Size);
+
+        // Name:        LinearInterpolation
+        // Description: Calculates the slope and offset of a linear interpolation  for a given set of X-Y data
+        //              using the least squares method
+        // Arguments:   ArrayX - Array of unsigned 32-bit integers representing the X points
+        //              ArrayY - Array of unsigned 32-bit integers representing the Y points
+        //              Size - The number of elements in the arrays
+        //              Slope - Pointer to a float where the calculated slope will be stored
+        //              Offset  - Pointer to a float where the calculated offset will be stored
+        // Returns:     None (the results are stored in the provided Slope and Offset pointers)
+        static void LinearInterpolation(uint32_t ArrayX[], uint32_t ArrayY[], uint8_t Size, float *Slope, float *Offset);
 };
 
 // ------------------------------------------------------------------------------------------------------- //
