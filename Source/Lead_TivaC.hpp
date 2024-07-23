@@ -1,15 +1,15 @@
 // ------------------------------------------------------------------------------------------------------- //
 
-// LQR controller library
+// Lead controller library
 // Version: 1.0
 // Author: Renan Duarte
 // E-mail: duarte.renan@hotmail.com
-// Date:   31/05/2024
+// Date:   23/07/2024
 
 // ------------------------------------------------------------------------------------------------------- //
 
-#ifndef LQR_TIVAC_H_
-#define LQR_TIVAC_H_
+#ifndef LEAD_TIVAC_H_
+#define LEAD_TIVAC_H_
 
 #ifdef __cplusplus
 extern "C"
@@ -27,31 +27,35 @@ extern "C"
 // Definitions
 // ------------------------------------------------------------------------------------------------------- //
 
-#define MAX_LQR_STATES 10               // Define the maximum number of states
-
 // ------------------------------------------------------------------------------------------------------- //
 // Structs
 // ------------------------------------------------------------------------------------------------------- //
 
-// LQR controller variables
+// Lead controller variables
 typedef struct
 {
-    float K[MAX_LQR_STATES];            // Gain matrix
-    float Ref[MAX_LQR_STATES];          // Setpoint
-    float State[MAX_LQR_STATES];        // State values (sample k)
-    float E[MAX_LQR_STATES];            // Error (sample k)
-    float Ut_nxt;                       // Control action (sample k + 1)
-    float Ut_min;                       // Minimum output value
-    float Ut_max;                       // Maximum output value
-} lqr_t;
+    float Ref;                  // Setpoint
+    float E_now;                // Error (sample k)
+    float E_lst;                // Error (sample k - 1)
+    float Ut_nxt;               // Control action - Total (sample k + 1)
+    float Ut_now;               // Control action - Total (sample k)
+    float A;                    // Gain A
+    float B;                    // Gain B
+    float C;                    // Gain C
+    float Ut_min;               // Minimum output value
+    float Ut_max;               // Maximum output value
+} lead_t;
 
-// LQR controller variables - Default values
-#define lqr_t_default { \
-    .K = {0}, \
-    .Ref = {0}, \
-    .State = {0}, \
-    .E = {0}, \
+// Lead controller variables - Default values
+#define lead_t_default { \
+    .Ref = 0, \
+    .E_now = 0, \
+    .E_lst = 0, \
     .Ut_nxt = 0, \
+    .Ut_now = 0, \
+    .A = 0, \
+    .B = 0, \
+    .C = 0, \
     .Ut_min = 0, \
     .Ut_max = 0, \
 }
@@ -60,7 +64,7 @@ typedef struct
 // Class prototype
 // ------------------------------------------------------------------------------------------------------- //
 
-class Lqr
+class Lead
 {
     // --------------------------------------------------------------------------------------------------- //
     // Private members
@@ -68,11 +72,8 @@ class Lqr
 
     private:
         
-        // LQR data
-        lqr_t _Data = lqr_t_default;
-
-        // Number of states
-        uint8_t _StateCount = 0;
+        // Lead data
+        lead_t _Data = lead_t_default;
 
     // --------------------------------------------------------------------------------------------------- //
     // Public members
@@ -80,65 +81,49 @@ class Lqr
 
     public:
 
-        // Name:        Lqr
+        // Name:        Lead
         // Description: Constructor of the class with no arguments
         // Arguments:   None
         // Returns:     None
-        Lqr();
+        Lead();
 
-        // Name:        Lqr
-        // Description: Constructor of the class with gains, references and limit arguments
-        // Arguments:   Gains - The gain vector
-        //              Refs - The reference vector
-        //              Size - Number of states
+        // Name:        Lead
+        // Description: Constructor of the class with gains, reference and limits
+        // Arguments:   A - A gain
+        //              B - B gain
+        //              C - C gain
+        //              Ref - Reference value
         //              Ut_min - Minimum output value
         //              Ut_max - Maximum output value
         // Returns:     None
-        Lqr(const float* Gains, const float* Refs, uint8_t Size, const float Ut_min, const float Ut_max);
+        Lead(const float A, const float B, const float C, const float Ref, const float Ut_min, const float Ut_max);
 
-        // Name:        Init
-        // Description: Initialises the LQR with gains, references and limit arguments
-        // Arguments:   Gains - The gain vector
-        //              Refs - The reference vector
-        //              Size - Number of states
-        //              Ut_min - Minimum output value
-        //              Ut_max - Maximum output value
+        // Name:        SetGains
+        // Description: Sets the controller gains
+        // Arguments:   A - A gain
+        //              B - B gain
+        //              C - C gain
         // Returns:     None
-        void Init(const float* Gains, const float* Refs, uint8_t Size, const float Ut_min, const float Ut_max);
+        void SetGains(const float A, const float B, const float C);
 
-        // Name:        SetGain
-        // Description: Sets the gain associated to one state
-        // Arguments:   StateIndex - Index of the state associated with the new value
-        //              NewGain - The gain value
+        // Name:        GetGains
+        // Description: Gets the controller gains
+        // Arguments:   Buffer - Buffer to receive the values
         // Returns:     None
-        void SetGain(uint8_t StateIndex, float NewGain);
+        void GetGains(float *Buffer);
 
         // Name:        SetReference
-        // Description: Sets the reference associated to one state
-        // Arguments:   StateIndex - Index of the state associated with the new value
-        //              NewReference - The reference value
+        // Description: Sets the reference
+        // Arguments:   NewReference - The reference value
         // Returns:     None
-        void SetReference(uint8_t StateIndex, float NewReference);
+        void SetReference(float NewReference);
 
         // Name:        GetReference
-        // Description: Gets the reference associated to one state
-        // Arguments:   StateIndex - Index of the state associated with the new value
+        // Description: Gets the reference 
+        // Arguments:   None
         // Returns:     The reference value
-        float GetReference(uint8_t StateIndex);
+        float GetReference();
 
-        // Name:        SetState
-        // Description: Sets the value of one state
-        // Arguments:   StateIndex - Index of the state
-        //              NewState - The state value
-        // Returns:     None
-        void SetState(uint8_t StateIndex, float NewState);
-
-        // Name:        GetState
-        // Description: Gets the value of one state
-        // Arguments:   StateIndex - Index of the state
-        // Returns:     The state value
-        float GetState(uint8_t StateIndex);
-        
         // Name:        SetLimits
         // Description: Sets the controller output limits
         // Arguments:   Ut_min - Minimum output value
@@ -154,9 +139,15 @@ class Lqr
 
         // Name:        Compute
         // Description: Computes the control action
-        // Arguments:   None
+        // Arguments:   Y - Current system output
         // Returns:     The new control action
-        float Compute();
+        float Compute(float Y);
+
+        // Name:        Reset
+        // Description: Resets the controller to its initial state
+        // Arguments:   None
+        // Returns:     None
+        void Reset();
 };
 
 // ------------------------------------------------------------------------------------------------------- //

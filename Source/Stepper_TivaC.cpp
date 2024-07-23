@@ -184,25 +184,18 @@ void Stepper::_IsrLimStaticCallback()
 
 void Stepper::_IsrLimHandler ()
 {
+    // Is moving backwards. Not possible anymore
     if (GPIOIntStatus (_Config.LimStart.Base, true) == _Config.LimStart.Pin)
-    {
-        // Is moving backwards. Not possible  anymore
         if ((_Status.Enabled) && (_Status.Dir == 0))
             Stop();
 
-        // Clear the asserted interrupts
-        GPIOIntClear (_Config.LimStart.Base, _Config.LimStart.Pin);
-    }
-
+    // Is moving forwards. Not possible anymore
     if (GPIOIntStatus (_Config.LimEnd.Base, true) == _Config.LimEnd.Pin)
-    {
-        // Is moving forwards. Not possible  anymore
         if ((_Status.Enabled) && (_Status.Dir == 1))
             Stop();
 
-        // Clear the asserted interrupts
-        GPIOIntClear (_Config.LimEnd.Base, _Config.LimEnd.Pin);
-    }
+    // Clear the asserted interrupts
+    GPIOIntClear (_Config.LimEnd.Base, _Config.LimStart.Pin | _Config.LimEnd.Pin);
 }
 
 // ------------------------------------------------------------------------------------------------------- //
@@ -680,20 +673,25 @@ bool Stepper::Move (float FinalVelocity, float Acceleration)
     {
         // Define initial conditions
         _CalculateVel();
+    }
 
-        // Can move in desired direction
-        if (_CanMove(_Status.Dir))
-        {
-            // Enable stepper
-            _SetEnable(true);
+    // Can move in desired direction
+    if (_CanMove(_Status.Dir))
+    {
+        // Enable stepper
+        _SetEnable(true);
 
-            // Start PWM
-            _StartPwm ();
-        }
+        // Start PWM
+        _StartPwm ();
+    }
 
-        // Cannot move. Reset variables
-        else
-            Stop();
+    // Cannot move
+    else
+    {
+        // Reset variables
+        Stop();
+
+        return;
     }
 
     // Start velocity control timer

@@ -1,17 +1,10 @@
 // ------------------------------------------------------------------------------------------------------- //
 
-// RGB LED library
+// LQR controller library
 // Version: 1.0
 // Author: Renan Duarte
 // E-mail: duarte.renan@hotmail.com
-// Date:   20/05/2024
-
-// Overview:
-
-//      This library provides functionality for controlling RGB LEDs on a Tiva C microcontroller. It
-//      allows the user to set the color of the RGB LED with or without fade transitions.
-//      The library supports a maximum of MAX_RGB_LEDS instances.
-//      The fade service runs at the same frequency as the LED PWM, so maximum fade time is 1/PwmFrequency
+// Date:   31/05/2024
 
 // ------------------------------------------------------------------------------------------------------- //
 
@@ -41,27 +34,32 @@ Lqr::Lqr()
 // ------------------------------------------------------------------------------------------------------- //
 
 // Name:        Lqr
-// Description: Constructor of the class with gains and references arguments
+// Description: Constructor of the class with gains, references and limit arguments
 // Arguments:   Gains - The gain vector
 //              Refs - The reference vector
 //              Size - Number of states
+//              Ut_min - Minimum output value
+//              Ut_max - Maximum output value
 // Returns:     None
 
-Lqr::Lqr(const float* Gains, const float* Refs, uint8_t Size) : Lqr()
+Lqr::Lqr(const float* Gains, const float* Refs, uint8_t Size, const float Ut_min, const float Ut_max)
 {
-    Init(Gains, Refs, Size);
+    Init(Gains, Refs, Size, Ut_min, Ut_max);
 }
+
 
 // ------------------------------------------------------------------------------------------------------- //
 
 // Name:        Init
-// Description: Initializes the LQR with the gain and reference vectors
+// Description: Initialises the LQR with gains, references and limit arguments
 // Arguments:   Gains - The gain vector
 //              Refs - The reference vector
 //              Size - Number of states
+//              Ut_min - Minimum output value
+//              Ut_max - Maximum output value
 // Returns:     None
 
-void Lqr::Init(const float* Gains, const float* Refs, uint8_t Size)
+void Lqr::Init(const float* Gains, const float* Refs, uint8_t Size, const float Ut_min, const float Ut_max)
 {
     if (Size <= MAX_LQR_STATES)
     {
@@ -73,6 +71,8 @@ void Lqr::Init(const float* Gains, const float* Refs, uint8_t Size)
             SetReference(Idx, Refs[Idx]);
         }
     }
+
+    SetLimits(Ut_min, Ut_max);
 }
 
 // ------------------------------------------------------------------------------------------------------- //
@@ -150,24 +150,64 @@ float Lqr::GetState(uint8_t StateIndex)
 
 // ------------------------------------------------------------------------------------------------------- //
 
-// Name:        Compute
-// Description: Sets the reference associated to one state
-// Arguments:   StateIndex - Index of the state associated with the new value
-//              NewReference - The reference value
+// Name:        SetLimits
+// Description: Sets the controller output limits
+// Arguments:   Ut_min - Minimum output value
+//              Ut_max - Maximum output value
 // Returns:     None
+
+void Lqr::SetLimits(const float Ut_min, const float Ut_max)
+{
+    _Data.Ut_min = Ut_min;
+    _Data.Ut_max = Ut_max;
+}
+
+// ------------------------------------------------------------------------------------------------------- //
+
+// Name:        GetLimits
+// Description: Gets the controller output limits
+// Arguments:   Buffer - Buffer to receive the values
+// Returns:     None
+
+void Lqr::GetLimits(float *Buffer)
+{
+    Buffer[0] = _Data.Ut_min;
+    Buffer[1] = _Data.Ut_max;
+}
+
+// ------------------------------------------------------------------------------------------------------- //
+
+// Name:        Compute
+// Description: Computes the control action
+// Arguments:   None
+// Returns:     The new control action
 
 float Lqr::Compute()
 {
-    _Data.U = 0;
+    // Reset control action value value
+    _Data.Ut_nxt = 0;
 
     // Calculate state error and control action
     for (uint8_t Idx = 0; Idx < _StateCount; Idx++)
     {
         _Data.E[Idx] = _Data.Ref[Idx] - _Data.State[Idx];
-        _Data.U += _Data.K[Idx] * _Data.E[Idx];
+        _Data.Ut_nxt += _Data.K[Idx] * _Data.E[Idx];
     }
 
-    return _Data.U;
+    // Limiter - Maximum output exceeded
+    if (_Data.Ut_nxt >= _Data.Ut_max)
+    {
+        _Data.Ut_nxt = _Data.Ut_max;
+    }
+
+    // Limiter - Minimum output exceeded
+    else if (_Data.Ut_nxt <= _Data.Ut_min)
+    {
+        _Data.Ut_nxt = _Data.Ut_min;
+    }
+
+    // Return calculated value
+    return _Data.Ut_nxt;
 }
 
 // ------------------------------------------------------------------------------------------------------- //
